@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Couple apps for two people: anyone with the secret code can read/write.
+    // Keep the code private (like a password).
+    match /couples/{code} {
+      allow read, write: if request.auth != null;
+
+      match /events/{eventId} {
+        allow read, write: if request.auth != null;
+      }
+      match /ideas/{ideaId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+}

@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-love: #c84b9f;
+  --color-love-dark: #9b4dca;
+  --color-love-soft: #f3d4eb;
+  --color-ink: #1a0a24;
+  --color-muted: #6b5a75;
+  --font-sans: "SF Pro Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(120% 80% at 10% -10%, #f8d6ef 0%, transparent 55%),
+    radial-gradient(100% 70% at 100% 0%, #e0c4ff 0%, transparent 50%),
+    #faf7fb;
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.field {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  background: white;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--color-love);
+  box-shadow: 0 0 0 3px rgb(200 75 159 / 0.15);
+}
+
+.btn-primary {
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #c84b9f, #9b4dca);
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.9rem 1.25rem;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.btn-secondary {
+  border: 0;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.06);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.9rem 1.25rem;
+  cursor: pointer;
+}
+
+.card {
+  border-radius: 1.5rem;
+  background: white;
+  box-shadow: 0 10px 40px rgb(155 77 202 / 0.08);
+}
