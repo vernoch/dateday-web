@@ -11,7 +11,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['heart.svg'],
+      // Keep SW strictly under /dateday-web/ so BX Pages on same host are untouched.
+      scope: '/dateday-web/',
+      includeAssets: ['dateday-icon.svg'],
       manifest: {
         name: 'DateDay',
         short_name: 'DateDay',
@@ -20,10 +22,12 @@ export default defineConfig({
         background_color: '#1a0a24',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/dateday-web/',
+        scope: '/dateday-web/',
+        id: '/dateday-web/',
         icons: [
           {
-            src: 'heart.svg',
+            src: 'dateday-icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any maskable',
