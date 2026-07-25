@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // GitHub Pages: https://vernoch.github.io/dateday-web/
+  base: '/dateday-web/',
   plugins: [
     react(),
     tailwindcss(),
