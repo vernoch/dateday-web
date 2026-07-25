@@ -1,1 +1,0 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/dateday-web/sw.js', { scope: '/dateday-web/' })})}
