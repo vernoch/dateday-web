@@ -3,14 +3,27 @@ import { getAuth, signInAnonymously, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 import { getStorage, type FirebaseStorage } from 'firebase/storage'
 
-const config = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string | undefined,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID as string | undefined,
+// Public web config — safe to ship in the client bundle for GitHub Pages builds.
+const firebaseDefaults = {
+  apiKey: 'AIzaSyBjDJiDfyf1vuf80mHVMyAvVXoSOkOczGE',
+  authDomain: 'dateday-f8549.firebaseapp.com',
+  projectId: 'dateday-f8549',
+  storageBucket: 'dateday-f8549.firebasestorage.app',
+  messagingSenderId: '981944035129',
+  appId: '1:981944035129:web:31a5b805f02e7c4c71eae8',
 }
+
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseDefaults.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseDefaults.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseDefaults.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseDefaults.storageBucket,
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseDefaults.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseDefaults.appId,
+}
+
+export const APP_VERSION = '1.1.0'
 
 export const isFirebaseConfigured = Boolean(
   config.apiKey &&

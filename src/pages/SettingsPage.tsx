@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Copy, Heart } from 'lucide-react'
 import { useCouple } from '../context/CoupleContext'
+import { APP_VERSION } from '../lib/firebase'
 
 export function SettingsPage() {
   const { code, mode, status, cloudReady, create, join, leave, repairSync, error } = useCouple()
@@ -69,8 +70,8 @@ export function SettingsPage() {
           <p className="text-sm text-muted">{status}</p>
           {!cloudReady && (
             <p className="mt-2 text-sm text-amber-700">
-              Firebase zatím není nastavené — appka běží lokálně. Pro sdílení na dálku
-              doplň `.env` podle README.
+              Stará verze appky nebo chybí cloud. Obnov stránku v Safari a zkus znovu
+              „Obnovit synchronizaci“.
             </p>
           )}
           {cloudReady && mode === 'cloud' && (
@@ -130,7 +131,7 @@ export function SettingsPage() {
       )}
 
       <div className="mt-8 space-y-1 text-sm text-muted">
-        <p>DateDay Web · 1.0</p>
+        <p>DateDay Web · {APP_VERSION}</p>
         <p>Přidej na plochu: Safari → Sdílet → Na plochu</p>
       </div>
     </div>
