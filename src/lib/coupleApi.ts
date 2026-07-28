@@ -200,6 +200,10 @@ function bumpLocal() {
   window.dispatchEvent(new Event('dateday-local-change'))
 }
 
+function firestorePayload<T extends Record<string, unknown>>(data: T): T {
+  return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)) as T
+}
+
 export async function upsertEvent(code: string, mode: AppMode, event: DateEvent) {
   if (mode === 'local' || !isFirebaseConfigured) {
     const list = localStore.getEvents()
@@ -213,7 +217,7 @@ export async function upsertEvent(code: string, mode: AppMode, event: DateEvent)
   await ensureAnonAuth()
   const { db } = getFirebase()
   const { id, ...rest } = event
-  await setDoc(doc(db, 'couples', code, 'events', id), rest, { merge: true })
+  await setDoc(doc(db, 'couples', code, 'events', id), firestorePayload(rest), { merge: true })
 }
 
 export async function removeEvent(code: string, mode: AppMode, id: string) {
@@ -240,7 +244,7 @@ export async function upsertIdea(code: string, mode: AppMode, idea: Idea) {
   await ensureAnonAuth()
   const { db } = getFirebase()
   const { id, ...rest } = idea
-  await setDoc(doc(db, 'couples', code, 'ideas', id), rest, { merge: true })
+  await setDoc(doc(db, 'couples', code, 'ideas', id), firestorePayload(rest), { merge: true })
 }
 
 export async function removeIdea(code: string, mode: AppMode, id: string) {
