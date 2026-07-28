@@ -212,6 +212,7 @@ export function newEventDraft(partial?: Partial<DateEvent>): DateEvent {
     date: new Date().toISOString(),
     location: '',
     notes: '',
+    link: '',
     isCompleted: false,
     createdAt: now,
     updatedAt: now,

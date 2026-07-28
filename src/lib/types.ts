@@ -13,6 +13,7 @@ export interface DateEvent {
   date: string // ISO
   location: string
   notes: string
+  link: string
   imageUrl?: string
   isCompleted: boolean
   createdAt: string

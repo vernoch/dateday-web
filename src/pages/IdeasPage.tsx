@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
+import { LinkPreview } from '../components/LinkPreview'
 import { IdeaForm } from '../components/IdeaForm'
 import { newIdeaDraft } from '../lib/coupleApi'
 import {
@@ -95,6 +96,7 @@ export function IdeasPage() {
                 <p className="mt-1 line-clamp-2 text-sm text-muted">{idea.notes}</p>
               )}
             </button>
+            {idea.link?.trim() && <LinkPreview url={idea.link} className="mt-3" />}
             <div className="mt-3 flex flex-wrap gap-2">
               {IDEA_STATUSES.map((s) => (
                 <button

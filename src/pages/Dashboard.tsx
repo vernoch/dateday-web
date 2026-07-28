@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
 import { EventForm } from '../components/EventForm'
+import { LinkPreview } from '../components/LinkPreview'
 import { newEventDraft } from '../lib/coupleApi'
 import { CATEGORY_EMOJI, IDEA_CATEGORIES } from '../lib/types'
 
@@ -50,26 +51,28 @@ export function Dashboard() {
         Příští rande
       </p>
       {next ? (
-        <button
-          type="button"
-          onClick={() => setEditId(next.id)}
-          className="card relative mb-6 w-full overflow-hidden text-left"
-        >
-          {next.imageUrl ? (
+        <div className="card relative mb-6 overflow-hidden">
+          {next.link?.trim() ? (
+            <LinkPreview url={next.link} variant="hero" />
+          ) : next.imageUrl ? (
             <img src={next.imageUrl} alt="" className="h-48 w-full object-cover" />
           ) : (
             <div className="flex h-48 items-end bg-gradient-to-br from-love to-love-dark p-5">
               <span className="text-5xl">💜</span>
             </div>
           )}
-          <div className="space-y-1 p-5">
+          <button
+            type="button"
+            onClick={() => setEditId(next.id)}
+            className="w-full space-y-1 p-5 text-left"
+          >
             <h2 className="text-xl font-semibold">{next.title}</h2>
             <p className="text-sm text-muted">
               {format(new Date(next.date), "EEEE d. MMMM · HH:mm", { locale: cs })}
             </p>
             {next.location && <p className="text-sm text-love">{next.location}</p>}
-          </div>
-        </button>
+          </button>
+        </div>
       ) : (
         <button
           onClick={() => setShowAdd(true)}

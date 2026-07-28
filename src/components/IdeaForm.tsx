@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useCouple } from '../context/CoupleContext'
 import { IDEA_CATEGORIES, IDEA_STATUSES, type Idea } from '../lib/types'
+import { LinkPreview } from './LinkPreview'
+import { normalizeUrl } from '../lib/linkPreview'
 
 export function IdeaForm({
   initial,
@@ -18,6 +20,10 @@ export function IdeaForm({
     e.preventDefault()
     if (!form.title.trim()) {
       setError('Zadej název nápadu.')
+      return
+    }
+    if (form.link.trim() && !normalizeUrl(form.link)) {
+      setError('Odkaz není platná URL.')
       return
     }
     setBusy(true)
@@ -71,6 +77,7 @@ export function IdeaForm({
         value={form.link}
         onChange={(e) => setForm({ ...form, link: e.target.value })}
       />
+      {form.link.trim() && <LinkPreview url={form.link} />}
       <textarea
         className="field min-h-24"
         placeholder="Poznámka"

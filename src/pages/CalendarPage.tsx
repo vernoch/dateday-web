@@ -15,6 +15,7 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
 import { EventForm } from '../components/EventForm'
+import { LinkPreview } from '../components/LinkPreview'
 import { newEventDraft } from '../lib/coupleApi'
 
 export function CalendarPage() {
@@ -106,6 +107,7 @@ export function CalendarPage() {
               <p className="text-sm text-muted">{format(new Date(e.date), 'HH:mm')}</p>
               {e.location && <p className="text-sm text-love">{e.location}</p>}
             </button>
+            {e.link?.trim() && <LinkPreview url={e.link} className="mt-3" />}
             <div className="mt-3 flex gap-2">
               <button
                 className="btn-secondary flex-1 text-sm"
