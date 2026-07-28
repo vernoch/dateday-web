@@ -3,7 +3,7 @@ import { Check, Copy, Heart } from 'lucide-react'
 import { useCouple } from '../context/CoupleContext'
 
 export function SettingsPage() {
-  const { code, mode, status, cloudReady, create, join, leave, error } = useCouple()
+  const { code, mode, status, cloudReady, create, join, leave, repairSync, error } = useCouple()
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -31,6 +31,19 @@ export function SettingsPage() {
       setJoinCode('')
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Nepovedlo se připojit.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onRepairSync() {
+    setBusy(true)
+    setMsg(null)
+    try {
+      await repairSync()
+      setMsg('Synchronizace obnovena. Zkus přidat nebo upravit rande.')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Obnovení synchronizace selhalo.')
     } finally {
       setBusy(false)
     }
@@ -80,6 +93,15 @@ export function SettingsPage() {
           <button onClick={leave} className="btn-secondary mt-4 w-full text-sm">
             Odpojit pár
           </button>
+          {cloudReady && (
+            <button
+              disabled={busy}
+              onClick={onRepairSync}
+              className="btn-secondary mt-2 w-full text-sm"
+            >
+              Obnovit synchronizaci
+            </button>
+          )}
         </div>
       )}
 
@@ -104,7 +126,7 @@ export function SettingsPage() {
       )}
 
       {(msg || error) && (
-        <p className="mt-4 text-sm text-muted">{msg || error}</p>
+        <p className={`mt-4 text-sm ${error ? 'text-red-600' : 'text-muted'}`}>{msg || error}</p>
       )}
 
       <div className="mt-8 space-y-1 text-sm text-muted">

@@ -15,6 +15,7 @@ import {
   leaveCouple,
   removeEvent,
   removeIdea,
+  repairCloudSync,
   subscribeCoupleData,
   upsertEvent,
   upsertIdea,
@@ -36,6 +37,7 @@ interface CoupleContextValue {
   create: () => Promise<string>
   join: (code: string) => Promise<void>
   leave: () => void
+  repairSync: () => Promise<void>
   saveEvent: (event: DateEvent) => Promise<void>
   deleteEvent: (id: string) => Promise<void>
   saveIdea: (idea: Idea) => Promise<void>
@@ -52,6 +54,12 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(Boolean(getSavedCoupleCode()))
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isFirebaseConfigured || !code) return
+    const resolved = getAppMode()
+    if (resolved !== mode) setMode(resolved)
+  }, [code, mode])
 
   useEffect(() => {
     if (!code) {
@@ -93,6 +101,13 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
     setMode(result.mode)
   }, [])
 
+  const repairSync = useCallback(async () => {
+    if (!code) throw new Error('Nejdřív vytvoř nebo připoj pár.')
+    setError(null)
+    await repairCloudSync(code)
+    setMode('cloud')
+  }, [code])
+
   const leave = useCallback(() => {
     leaveCouple()
     setCode(null)
@@ -123,6 +138,7 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       create,
       join,
       leave,
+      repairSync,
       saveEvent: async (event) => {
         await upsertEvent(requireCode(), mode, { ...event, updatedAt: new Date().toISOString() })
       },
@@ -133,7 +149,7 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       deleteIdea: async (id) => removeIdea(requireCode(), mode, id),
       uploadImage: async (file) => uploadEventImage(requireCode(), file),
     }),
-    [code, mode, events, ideas, loading, error, create, join, leave],
+    [code, mode, events, ideas, loading, error, create, join, leave, repairSync],
   )
 
   return <CoupleContext.Provider value={value}>{children}</CoupleContext.Provider>

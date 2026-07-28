@@ -112,6 +112,24 @@ export async function joinCouple(raw: string): Promise<{ code: string; mode: App
 
 export function leaveCouple() {
   setCoupleCode(null)
+  localStorage.removeItem(MODE_KEY)
+}
+
+export async function repairCloudSync(raw: string): Promise<void> {
+  if (!isFirebaseConfigured) {
+    throw new Error('Cloud sync není dostupný.')
+  }
+
+  const code = normalizeCode(raw)
+  if (code.length < 4) throw new Error('Kód je příliš krátký.')
+
+  await ensureAnonAuth()
+  const { db } = getFirebase()
+  const snap = await getDoc(doc(db, 'couples', code))
+  if (!snap.exists()) throw new Error('Pár s tímto kódem neexistuje.')
+
+  setCoupleCode(code)
+  setMode('cloud')
 }
 
 export function subscribeCoupleData(
@@ -131,34 +149,50 @@ export function subscribeCoupleData(
   let events: DateEvent[] = []
   let ideas: Idea[] = []
   let ready = { e: false, i: false }
+  let unsubE: Unsubscribe | null = null
+  let unsubI: Unsubscribe | null = null
+  let cancelled = false
 
   const push = () => {
     if (ready.e && ready.i) onData(events, ideas)
   }
 
-  const unsubE = onSnapshot(
-    collection(db, 'couples', code, 'events'),
-    (snap) => {
-      events = snap.docs.map((d) => normalizeEvent({ id: d.id, ...(d.data() as Partial<DateEvent>) }))
-      ready.e = true
-      push()
-    },
-    (err) => onError(err.message),
-  )
+  void ensureAnonAuth()
+    .then(() => {
+      if (cancelled) return
 
-  const unsubI = onSnapshot(
-    collection(db, 'couples', code, 'ideas'),
-    (snap) => {
-      ideas = snap.docs.map((d) => normalizeIdea({ id: d.id, ...(d.data() as Partial<Idea>) }))
-      ready.i = true
-      push()
-    },
-    (err) => onError(err.message),
-  )
+      unsubE = onSnapshot(
+        collection(db, 'couples', code, 'events'),
+        (snap) => {
+          events = snap.docs.map((d) =>
+            normalizeEvent({ id: d.id, ...(d.data() as Partial<DateEvent>) }),
+          )
+          ready.e = true
+          push()
+        },
+        (err) => onError(err.message),
+      )
+
+      unsubI = onSnapshot(
+        collection(db, 'couples', code, 'ideas'),
+        (snap) => {
+          ideas = snap.docs.map((d) =>
+            normalizeIdea({ id: d.id, ...(d.data() as Partial<Idea>) }),
+          )
+          ready.i = true
+          push()
+        },
+        (err) => onError(err.message),
+      )
+    })
+    .catch((err) => {
+      onError(err instanceof Error ? err.message : 'Přihlášení k cloudu selhalo.')
+    })
 
   return () => {
-    unsubE()
-    unsubI()
+    cancelled = true
+    unsubE?.()
+    unsubI?.()
   }
 }
 

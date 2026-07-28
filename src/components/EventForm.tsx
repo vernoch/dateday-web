@@ -17,11 +17,13 @@ function toLocalInputValue(iso: string): string {
 export function EventForm({
   initial,
   onDone,
+  allowDelete = false,
 }: {
   initial: DateEvent
   onDone: () => void
+  allowDelete?: boolean
 }) {
-  const { saveEvent } = useCouple()
+  const { saveEvent, deleteEvent } = useCouple()
   const [form, setForm] = useState(() => newEventDraft(initial))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +45,20 @@ export function EventForm({
       onDone()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Uložení selhalo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onDelete() {
+    if (!confirm('Smazat toto rande?')) return
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteEvent(form.id)
+      onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Smazání selhalo.')
     } finally {
       setBusy(false)
     }
@@ -89,6 +105,16 @@ export function EventForm({
       <button disabled={busy} className="btn-primary w-full" type="submit">
         {busy ? 'Ukládám…' : 'Uložit'}
       </button>
+      {allowDelete && (
+        <button
+          disabled={busy}
+          type="button"
+          onClick={onDelete}
+          className="btn-secondary w-full text-red-600"
+        >
+          Smazat rande
+        </button>
+      )}
     </form>
   )
 }

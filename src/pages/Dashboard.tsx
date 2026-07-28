@@ -135,7 +135,7 @@ export function Dashboard() {
       )}
       {editEvent && (
         <Modal title="Upravit rande" onClose={() => setEditId(null)}>
-          <EventForm initial={editEvent} onDone={() => setEditId(null)} />
+          <EventForm initial={editEvent} allowDelete onDone={() => setEditId(null)} />
         </Modal>
       )}
     </div>
