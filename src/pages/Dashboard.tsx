@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { format, isAfter, startOfDay } from 'date-fns'
 import { cs } from 'date-fns/locale'
 import { Plus } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
 import { EventForm } from '../components/EventForm'
@@ -9,8 +10,10 @@ import { newEventDraft } from '../lib/coupleApi'
 import { CATEGORY_EMOJI, IDEA_CATEGORIES } from '../lib/types'
 
 export function Dashboard() {
+  const navigate = useNavigate()
   const { events, ideas, code } = useCouple()
   const [showAdd, setShowAdd] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
 
   const upcoming = useMemo(() => {
     const today = startOfDay(new Date())
@@ -20,6 +23,7 @@ export function Dashboard() {
   }, [events])
 
   const next = upcoming[0]
+  const editEvent = events.find((e) => e.id === editId)
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Dobré ráno' : hour < 18 ? 'Ahoj' : 'Dobrý večer'
 
@@ -46,7 +50,11 @@ export function Dashboard() {
         Příští rande
       </p>
       {next ? (
-        <div className="card relative mb-6 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setEditId(next.id)}
+          className="card relative mb-6 w-full overflow-hidden text-left"
+        >
           {next.imageUrl ? (
             <img src={next.imageUrl} alt="" className="h-48 w-full object-cover" />
           ) : (
@@ -61,7 +69,7 @@ export function Dashboard() {
             </p>
             {next.location && <p className="text-sm text-love">{next.location}</p>}
           </div>
-        </div>
+        </button>
       ) : (
         <button
           onClick={() => setShowAdd(true)}
@@ -80,12 +88,17 @@ export function Dashboard() {
           </p>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {upcoming.slice(1, 9).map((e) => (
-              <div key={e.id} className="card min-w-[160px] shrink-0 p-4">
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => setEditId(e.id)}
+                className="card min-w-[160px] shrink-0 p-4 text-left"
+              >
                 <p className="line-clamp-2 font-semibold">{e.title}</p>
                 <p className="mt-1 text-xs text-muted">
                   {format(new Date(e.date), 'd. M. HH:mm')}
                 </p>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -98,11 +111,16 @@ export function Dashboard() {
         {IDEA_CATEGORIES.map((cat) => {
           const count = ideas.filter((i) => i.category === cat).length
           return (
-            <div key={cat} className="card p-4">
+            <button
+              key={cat}
+              type="button"
+              onClick={() => navigate(`/ideas?category=${encodeURIComponent(cat)}`)}
+              className="card p-4 text-left"
+            >
               <div className="text-2xl">{CATEGORY_EMOJI[cat]}</div>
               <p className="mt-2 font-semibold">{cat}</p>
               <p className="text-xs text-muted">{count} nápadů</p>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -110,6 +128,11 @@ export function Dashboard() {
       {showAdd && (
         <Modal title="Nové rande" onClose={() => setShowAdd(false)}>
           <EventForm initial={newEventDraft()} onDone={() => setShowAdd(false)} />
+        </Modal>
+      )}
+      {editEvent && (
+        <Modal title="Upravit rande" onClose={() => setEditId(null)}>
+          <EventForm initial={editEvent} onDone={() => setEditId(null)} />
         </Modal>
       )}
     </div>

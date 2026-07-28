@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
 import { IdeaForm } from '../components/IdeaForm'
@@ -14,10 +15,18 @@ import {
 
 export function IdeasPage() {
   const { ideas, deleteIdea, saveIdea } = useCouple()
+  const [searchParams] = useSearchParams()
   const [category, setCategory] = useState<IdeaCategory | 'Vše'>('Vše')
   const [status, setStatus] = useState<IdeaStatus | 'Vše'>('Vše')
   const [showAdd, setShowAdd] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('category')
+    if (fromUrl && IDEA_CATEGORIES.includes(fromUrl as IdeaCategory)) {
+      setCategory(fromUrl as IdeaCategory)
+    }
+  }, [searchParams])
 
   const filtered = useMemo(() => {
     return ideas
