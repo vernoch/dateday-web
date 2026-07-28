@@ -23,9 +23,43 @@ export function getSavedCoupleCode(): string | null {
 }
 
 export function getAppMode(): AppMode {
+  if (!isFirebaseConfigured) return 'local'
   const saved = localStorage.getItem(MODE_KEY) as AppMode | null
-  if (saved) return saved
-  return isFirebaseConfigured ? 'cloud' : 'local'
+  if (saved === 'local') {
+    setMode('cloud')
+    return 'cloud'
+  }
+  return saved ?? 'cloud'
+}
+
+function normalizeEvent(raw: Partial<DateEvent> & { id: string }): DateEvent {
+  const now = new Date().toISOString()
+  return {
+    id: raw.id,
+    title: raw.title ?? '',
+    date: raw.date ?? now,
+    location: raw.location ?? '',
+    notes: raw.notes ?? '',
+    link: raw.link ?? '',
+    imageUrl: raw.imageUrl,
+    isCompleted: raw.isCompleted ?? false,
+    createdAt: raw.createdAt ?? now,
+    updatedAt: raw.updatedAt ?? now,
+  }
+}
+
+function normalizeIdea(raw: Partial<Idea> & { id: string }): Idea {
+  const now = new Date().toISOString()
+  return {
+    id: raw.id,
+    title: raw.title ?? '',
+    notes: raw.notes ?? '',
+    link: raw.link ?? '',
+    category: raw.category ?? 'Ostatní',
+    status: raw.status ?? 'Wishlist',
+    createdAt: raw.createdAt ?? now,
+    updatedAt: raw.updatedAt ?? now,
+  }
 }
 
 function setCoupleCode(code: string | null) {
@@ -105,7 +139,7 @@ export function subscribeCoupleData(
   const unsubE = onSnapshot(
     collection(db, 'couples', code, 'events'),
     (snap) => {
-      events = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<DateEvent, 'id'>) }))
+      events = snap.docs.map((d) => normalizeEvent({ id: d.id, ...(d.data() as Partial<DateEvent>) }))
       ready.e = true
       push()
     },
@@ -115,7 +149,7 @@ export function subscribeCoupleData(
   const unsubI = onSnapshot(
     collection(db, 'couples', code, 'ideas'),
     (snap) => {
-      ideas = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Idea, 'id'>) }))
+      ideas = snap.docs.map((d) => normalizeIdea({ id: d.id, ...(d.data() as Partial<Idea>) }))
       ready.i = true
       push()
     },

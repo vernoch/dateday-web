@@ -3,6 +3,7 @@ import { useCouple } from '../context/CoupleContext'
 import { IDEA_CATEGORIES, IDEA_STATUSES, type Idea } from '../lib/types'
 import { LinkPreview } from './LinkPreview'
 import { normalizeUrl } from '../lib/linkPreview'
+import { newIdeaDraft } from '../lib/coupleApi'
 
 export function IdeaForm({
   initial,
@@ -12,7 +13,7 @@ export function IdeaForm({
   onDone: () => void
 }) {
   const { saveIdea } = useCouple()
-  const [form, setForm] = useState(initial)
+  const [form, setForm] = useState(() => newIdeaDraft(initial))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +23,7 @@ export function IdeaForm({
       setError('Zadej název nápadu.')
       return
     }
-    if (form.link.trim() && !normalizeUrl(form.link)) {
+    if ((form.link ?? '').trim() && !normalizeUrl(form.link)) {
       setError('Odkaz není platná URL.')
       return
     }
@@ -74,10 +75,10 @@ export function IdeaForm({
       <input
         className="field"
         placeholder="Odkaz (volitelně)"
-        value={form.link}
+        value={form.link ?? ''}
         onChange={(e) => setForm({ ...form, link: e.target.value })}
       />
-      {form.link.trim() && <LinkPreview url={form.link} />}
+      {(form.link ?? '').trim() && <LinkPreview url={form.link} />}
       <textarea
         className="field min-h-24"
         placeholder="Poznámka"

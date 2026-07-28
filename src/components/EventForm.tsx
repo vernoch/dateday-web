@@ -4,6 +4,15 @@ import type { DateEvent } from '../lib/types'
 import { useCouple } from '../context/CoupleContext'
 import { LinkPreview } from './LinkPreview'
 import { normalizeUrl } from '../lib/linkPreview'
+import { newEventDraft } from '../lib/coupleApi'
+
+function toLocalInputValue(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return format(new Date(), "yyyy-MM-dd'T'HH:mm")
+  }
+  return format(date, "yyyy-MM-dd'T'HH:mm")
+}
 
 export function EventForm({
   initial,
@@ -13,7 +22,7 @@ export function EventForm({
   onDone: () => void
 }) {
   const { saveEvent } = useCouple()
-  const [form, setForm] = useState(initial)
+  const [form, setForm] = useState(() => newEventDraft(initial))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,7 +32,7 @@ export function EventForm({
       setError('Zadej název rande.')
       return
     }
-    if (form.link.trim() && !normalizeUrl(form.link)) {
+    if ((form.link ?? '').trim() && !normalizeUrl(form.link)) {
       setError('Odkaz není platná URL.')
       return
     }
@@ -39,7 +48,7 @@ export function EventForm({
     }
   }
 
-  const localValue = format(new Date(form.date), "yyyy-MM-dd'T'HH:mm")
+  const localValue = toLocalInputValue(form.date)
 
   return (
     <form onSubmit={onSubmit} className="space-y-3">
@@ -66,10 +75,10 @@ export function EventForm({
       <input
         className="field"
         placeholder="Odkaz (volitelně)"
-        value={form.link}
+        value={form.link ?? ''}
         onChange={(e) => setForm({ ...form, link: e.target.value })}
       />
-      {form.link.trim() && <LinkPreview url={form.link} />}
+      {(form.link ?? '').trim() && <LinkPreview url={form.link} />}
       <textarea
         className="field min-h-24"
         placeholder="Poznámka"

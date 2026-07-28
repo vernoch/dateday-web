@@ -3,7 +3,7 @@ import { Check, Copy, Heart } from 'lucide-react'
 import { useCouple } from '../context/CoupleContext'
 
 export function SettingsPage() {
-  const { code, status, cloudReady, create, join, leave, error } = useCouple()
+  const { code, mode, status, cloudReady, create, join, leave, error } = useCouple()
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -58,6 +58,11 @@ export function SettingsPage() {
             <p className="mt-2 text-sm text-amber-700">
               Firebase zatím není nastavené — appka běží lokálně. Pro sdílení na dálku
               doplň `.env` podle README.
+            </p>
+          )}
+          {cloudReady && mode === 'cloud' && (
+            <p className="mt-2 text-sm text-green-700">
+              Data se synchronizují mezi zařízeními se stejným kódem páru.
             </p>
           )}
         </div>
