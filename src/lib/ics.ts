@@ -106,6 +106,12 @@ export function downloadCalendarIcs(events: DateEvent[], filename = 'DateDay.ics
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
+/** Open a single event in Apple Calendar (one-shot add). */
+export function openEventInAppleCalendar(event: DateEvent) {
+  const safe = (event.title || 'rande').replace(/[^\w\-]+/g, '_').slice(0, 40)
+  downloadCalendarIcs([event], `DateDay-${safe}.ics`)
+}
+
 /** Convert https URL to webcal:// for Apple Calendar subscribe. */
 export function toWebcalUrl(httpsUrl: string): string {
   return httpsUrl.replace(/^https:/i, 'webcal:')

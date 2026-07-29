@@ -178,8 +178,23 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
         const c = requireCode()
         const next = { ...event, updatedAt: new Date().toISOString() }
         await upsertEvent(c, mode, next)
+        if (mode === 'cloud' && isFirebaseConfigured) {
+          const nextEvents = events.some((e) => e.id === next.id)
+            ? events.map((e) => (e.id === next.id ? next : e))
+            : [...events, next]
+          lastFeedSig.current = ''
+          void publishCalendarFeed(c, nextEvents).catch(() => {})
+        }
       },
-      deleteEvent: async (id) => removeEvent(requireCode(), mode, id),
+      deleteEvent: async (id) => {
+        const c = requireCode()
+        await removeEvent(c, mode, id)
+        if (mode === 'cloud' && isFirebaseConfigured) {
+          const nextEvents = events.filter((e) => e.id !== id)
+          lastFeedSig.current = ''
+          void publishCalendarFeed(c, nextEvents).catch(() => {})
+        }
+      },
       saveIdea: async (idea) => {
         await upsertIdea(requireCode(), mode, { ...idea, updatedAt: new Date().toISOString() })
       },

@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import type { DateEvent } from '../lib/types'
 import { useCouple } from '../context/CoupleContext'
 import { LinkPreview } from './LinkPreview'
 import { fetchLinkPreview, normalizeUrl } from '../lib/linkPreview'
 import { newEventDraft } from '../lib/coupleApi'
+import { getAutoAppleCalendar } from '../lib/appleCalendarPrefs'
+import { openEventInAppleCalendar } from '../lib/ics'
 
 function toLocalInputValue(iso: string): string {
   const date = new Date(iso)
@@ -23,7 +25,8 @@ export function EventForm({
   onDone: () => void
   allowDelete?: boolean
 }) {
-  const { saveEvent, deleteEvent } = useCouple()
+  const { events, saveEvent, deleteEvent } = useCouple()
+  const isNew = useMemo(() => !events.some((e) => e.id === initial.id), [events, initial.id])
   const [form, setForm] = useState(() => newEventDraft(initial))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -49,7 +52,11 @@ export function EventForm({
         const preview = await fetchLinkPreview(link)
         previewImageUrl = preview?.imageUrl
       }
-      await saveEvent({ ...form, link, previewImageUrl })
+      const toSave = { ...form, link, previewImageUrl }
+      await saveEvent(toSave)
+      if (isNew && getAutoAppleCalendar()) {
+        openEventInAppleCalendar(toSave)
+      }
       onDone()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Uložení selhalo.')
@@ -111,6 +118,11 @@ export function EventForm({
         value={form.notes}
         onChange={(e) => setForm({ ...form, notes: e.target.value })}
       />
+      {isNew && getAutoAppleCalendar() && (
+        <p className="text-[13px] text-muted">
+          Po uložení se rande nabídne do Apple Kalendáře.
+        </p>
+      )}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button disabled={busy} className="btn-primary w-full" type="submit">
         {busy ? 'Ukládám…' : 'Uložit'}

@@ -4,6 +4,7 @@ import { useCouple } from '../context/CoupleContext'
 import { getCalendarFeedPublicUrl } from '../lib/coupleApi'
 import { APP_VERSION } from '../lib/firebase'
 import { downloadCalendarIcs, toWebcalUrl } from '../lib/ics'
+import { getAutoAppleCalendar, setAutoAppleCalendar } from '../lib/appleCalendarPrefs'
 
 async function copyText(text: string) {
   try {
@@ -41,6 +42,7 @@ export function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [copiedFeed, setCopiedFeed] = useState(false)
   const [feedReady, setFeedReady] = useState(false)
+  const [autoApple, setAutoApple] = useState(() => getAutoAppleCalendar())
 
   const feedHttps = useMemo(() => {
     if (!code || !cloudReady || mode !== 'cloud') return null
@@ -49,7 +51,6 @@ export function SettingsPage() {
 
   const feedWebcal = feedHttps ? toWebcalUrl(feedHttps) : null
 
-  // Keep the shared .ics fresh so subscribe/open has something to load.
   useEffect(() => {
     if (!feedHttps) {
       setFeedReady(false)
@@ -61,12 +62,7 @@ export function SettingsPage() {
         if (!cancelled) setFeedReady(true)
       })
       .catch(() => {
-        if (!cancelled) {
-          setFeedReady(false)
-          setMsg(
-            'Nepodařilo se připravit online kalendář. Zkontroluj Firebase Storage Rules, nebo použij „Stáhnout do Kalendáře“ níže.',
-          )
-        }
+        if (!cancelled) setFeedReady(false)
       })
     return () => {
       cancelled = true
@@ -142,6 +138,12 @@ export function SettingsPage() {
   function openIcsNow() {
     downloadCalendarIcs(events, 'DateDay.ics')
     setMsg('Soubor DateDay.ics se stahuje / otevírá — v iOS potvrď přidání do Kalendáře.')
+  }
+
+  function toggleAutoApple() {
+    const next = !autoApple
+    setAutoApple(next)
+    setAutoAppleCalendar(next)
   }
 
   return (
@@ -253,19 +255,34 @@ export function SettingsPage() {
       <div className="settings-card mb-5">
         <div className="p-4">
           <p className="text-[14px] leading-relaxed text-muted">
-            Nejspolehlivější: stáhni rande jako soubor a iPhone je přidá do Kalendáře. Živý odběr
-            funguje přes odkaz níže (po publikaci Storage Rules).
+            Při uložení nového rande se automaticky otevře Apple Kalendář — potvrď přidání. Zároveň
+            se aktualizuje online feed (pro živý odběr).
           </p>
 
           <button
             type="button"
+            onClick={toggleAutoApple}
+            className="mt-4 flex w-full items-center justify-between rounded-2xl bg-chip px-4 py-3.5 text-left"
+          >
+            <span className="text-[16px] font-semibold">Auto přidat nové rande</span>
+            <span
+              className={`rounded-full px-3 py-1 text-[13px] font-semibold ${
+                autoApple ? 'bg-love text-white' : 'bg-white text-muted'
+              }`}
+            >
+              {autoApple ? 'Zapnuto' : 'Vypnuto'}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={openIcsNow}
-            className="mt-4 flex w-full items-center gap-3 rounded-2xl bg-love px-4 py-3.5 text-left text-white"
+            className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-love px-4 py-3.5 text-left text-white"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
               <Download className="h-4 w-4" />
             </div>
-            <span className="text-[16px] font-semibold">Stáhnout do Kalendáře</span>
+            <span className="text-[16px] font-semibold">Přidat všechna rande teď</span>
           </button>
 
           {feedWebcal && feedHttps && (
@@ -274,7 +291,9 @@ export function SettingsPage() {
                 href={feedWebcal}
                 onClick={() => {
                   void refreshCalendarFeed().then(() => setFeedReady(true)).catch(() => {})
-                  setMsg('Pokud se Kalendář neotevřel, použij „Stáhnout do Kalendáře“ nebo zkopíruj odkaz.')
+                  setMsg(
+                    'Potvrď odběr v Kalendáři. Nová rande se pak budou doplňovat sama (s prodlevou iOS).',
+                  )
                 }}
                 className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-chip px-4 py-3.5 text-left"
               >
@@ -283,10 +302,10 @@ export function SettingsPage() {
                 </div>
                 <span className="min-w-0">
                   <span className="block text-[16px] font-semibold text-love">
-                    Přihlásit živý odběr
+                    Zapnout živý odběr
                   </span>
                   <span className="block text-[12px] text-muted">
-                    {feedReady ? 'Feed připraven' : 'Připravuji feed…'}
+                    {feedReady ? 'Feed online — stačí jednou' : 'Připravuji feed…'}
                   </span>
                 </span>
               </a>
