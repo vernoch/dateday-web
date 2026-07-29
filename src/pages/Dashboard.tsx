@@ -9,6 +9,45 @@ import { EventForm } from '../components/EventForm'
 import { newEventDraft } from '../lib/coupleApi'
 import { IDEA_CATEGORIES } from '../lib/types'
 import { CATEGORY_STYLE, napaduLabel } from '../lib/categoryStyles'
+import { useEventCoverImage } from '../hooks/useEventCoverImage'
+
+function NextDateCard({
+  title,
+  dateIso,
+  link,
+  previewImageUrl,
+  imageUrl,
+  onClick,
+}: {
+  title: string
+  dateIso: string
+  link?: string
+  previewImageUrl?: string
+  imageUrl?: string
+  onClick: () => void
+}) {
+  const { src } = useEventCoverImage({ link, previewImageUrl, imageUrl })
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="hero-gradient relative mb-8 flex h-52 w-full flex-col justify-end overflow-hidden rounded-[1.75rem] p-5 text-left shadow-lg shadow-indigo-900/20"
+    >
+      {src && (
+        <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-black/10" />
+      <div className="relative z-10">
+        <h3 className="text-[28px] font-bold leading-tight text-white">{title}</h3>
+        <p className="mt-1.5 flex items-center gap-1.5 text-[15px] text-white/90">
+          <CalendarDays className="h-4 w-4" strokeWidth={2} />
+          {format(new Date(dateIso), 'd MMMM yyyy', { locale: enUS })}
+        </p>
+      </div>
+    </button>
+  )
+}
 
 export function Dashboard() {
   const navigate = useNavigate()
@@ -51,27 +90,14 @@ export function Dashboard() {
 
       <h2 className="mb-3 text-[22px] font-bold tracking-tight">Příští rande</h2>
       {next ? (
-        <button
-          type="button"
+        <NextDateCard
+          title={next.title}
+          dateIso={next.date}
+          link={next.link}
+          previewImageUrl={next.previewImageUrl}
+          imageUrl={next.imageUrl}
           onClick={() => setEditId(next.id)}
-          className="hero-gradient relative mb-8 flex h-52 w-full flex-col justify-end overflow-hidden rounded-[1.75rem] p-5 text-left shadow-lg shadow-indigo-900/20"
-        >
-          {next.imageUrl && (
-            <img
-              src={next.imageUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover opacity-40"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-          <div className="relative z-10">
-            <h3 className="text-[28px] font-bold leading-tight text-white">{next.title}</h3>
-            <p className="mt-1.5 flex items-center gap-1.5 text-[15px] text-white/90">
-              <CalendarDays className="h-4 w-4" strokeWidth={2} />
-              {format(new Date(next.date), 'd MMMM yyyy', { locale: enUS })}
-            </p>
-          </div>
-        </button>
+        />
       ) : (
         <button
           onClick={() => setShowAdd(true)}

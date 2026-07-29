@@ -7,8 +7,9 @@ import {
   setDoc,
   type Unsubscribe,
 } from 'firebase/firestore'
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import { getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage'
 import { ensureAnonAuth, getFirebase, isFirebaseConfigured } from './firebase'
+import { buildCalendarIcs } from './ics'
 import { generateCoupleCode, normalizeCode, uid } from './ids'
 import { localStore } from './localStore'
 import type { DateEvent, Idea } from './types'
@@ -42,6 +43,7 @@ function normalizeEvent(raw: Partial<DateEvent> & { id: string }): DateEvent {
     notes: raw.notes ?? '',
     link: raw.link ?? '',
     imageUrl: raw.imageUrl,
+    previewImageUrl: raw.previewImageUrl,
     isCompleted: raw.isCompleted ?? false,
     createdAt: raw.createdAt ?? now,
     updatedAt: raw.updatedAt ?? now,
@@ -274,6 +276,34 @@ export async function uploadEventImage(code: string, file: File): Promise<string
   const r = ref(storage, path)
   await uploadBytes(r, file)
   return getDownloadURL(r)
+}
+
+const CALENDAR_PATH = (code: string) => `couples/${code}/calendar.ics`
+
+/** Stable public HTTPS URL for the couple calendar feed (no auth token required once rules allow public read). */
+export function getCalendarFeedPublicUrl(code: string): string | null {
+  if (!isFirebaseConfigured) return null
+  const { storage } = getFirebase()
+  const bucket = storage.app.options.storageBucket
+  if (!bucket) return null
+  const path = encodeURIComponent(CALENDAR_PATH(code))
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${path}?alt=media`
+}
+
+/** Upload / refresh the shared .ics feed for Apple Calendar subscription. */
+export async function publishCalendarFeed(code: string, events: DateEvent[]): Promise<string> {
+  if (!isFirebaseConfigured) {
+    throw new Error('Cloud kalendář vyžaduje Firebase.')
+  }
+  await ensureAnonAuth()
+  const { storage } = getFirebase()
+  const ics = buildCalendarIcs(events, 'DateDay')
+  const r = ref(storage, CALENDAR_PATH(code))
+  await uploadString(r, ics, 'raw', {
+    contentType: 'text/calendar; charset=utf-8',
+    cacheControl: 'public, max-age=300',
+  })
+  return getCalendarFeedPublicUrl(code) || (await getDownloadURL(r))
 }
 
 export function newEventDraft(partial?: Partial<DateEvent>): DateEvent {

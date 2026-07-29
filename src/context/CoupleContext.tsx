@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -13,6 +14,7 @@ import {
   getSavedCoupleCode,
   joinCouple,
   leaveCouple,
+  publishCalendarFeed,
   removeEvent,
   removeIdea,
   repairCloudSync,
@@ -43,6 +45,7 @@ interface CoupleContextValue {
   saveIdea: (idea: Idea) => Promise<void>
   deleteIdea: (id: string) => Promise<void>
   uploadImage: (file: File) => Promise<string>
+  refreshCalendarFeed: () => Promise<string | null>
 }
 
 const CoupleContext = createContext<CoupleContextValue | null>(null)
@@ -54,12 +57,33 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(Boolean(getSavedCoupleCode()))
   const [error, setError] = useState<string | null>(null)
+  const feedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastFeedSig = useRef<string>('')
 
   useEffect(() => {
     if (!isFirebaseConfigured || !code) return
     const resolved = getAppMode()
     if (resolved !== mode) setMode(resolved)
   }, [code, mode])
+
+  const scheduleCalendarPublish = useCallback(
+    (coupleCode: string, nextEvents: DateEvent[]) => {
+      if (!isFirebaseConfigured || mode !== 'cloud') return
+      const sig = nextEvents
+        .map((e) => `${e.id}:${e.updatedAt}:${e.title}:${e.date}`)
+        .sort()
+        .join('|')
+      if (sig === lastFeedSig.current) return
+      if (feedTimer.current) clearTimeout(feedTimer.current)
+      feedTimer.current = setTimeout(() => {
+        lastFeedSig.current = sig
+        void publishCalendarFeed(coupleCode, nextEvents).catch(() => {
+          // Feed publish is best-effort; don't block the UI.
+        })
+      }, 800)
+    },
+    [mode],
+  )
 
   useEffect(() => {
     if (!code) {
@@ -77,14 +101,18 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
         setIdeas(i)
         setLoading(false)
         setError(null)
+        scheduleCalendarPublish(code, e)
       },
       (message) => {
         setError(message)
         setLoading(false)
       },
     )
-    return () => unsub()
-  }, [code, mode])
+    return () => {
+      unsub()
+      if (feedTimer.current) clearTimeout(feedTimer.current)
+    }
+  }, [code, mode, scheduleCalendarPublish])
 
   const create = useCallback(async () => {
     setError(null)
@@ -113,12 +141,19 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
     setCode(null)
     setEvents([])
     setIdeas([])
+    lastFeedSig.current = ''
   }, [])
 
   const requireCode = () => {
     if (!code) throw new Error('Nejdřív vytvoř nebo připoj pár.')
     return code
   }
+
+  const refreshCalendarFeed = useCallback(async () => {
+    if (!code || mode !== 'cloud' || !isFirebaseConfigured) return null
+    lastFeedSig.current = ''
+    return publishCalendarFeed(code, events)
+  }, [code, mode, events])
 
   const value = useMemo<CoupleContextValue>(
     () => ({
@@ -140,7 +175,9 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       leave,
       repairSync,
       saveEvent: async (event) => {
-        await upsertEvent(requireCode(), mode, { ...event, updatedAt: new Date().toISOString() })
+        const c = requireCode()
+        const next = { ...event, updatedAt: new Date().toISOString() }
+        await upsertEvent(c, mode, next)
       },
       deleteEvent: async (id) => removeEvent(requireCode(), mode, id),
       saveIdea: async (idea) => {
@@ -148,8 +185,9 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       },
       deleteIdea: async (id) => removeIdea(requireCode(), mode, id),
       uploadImage: async (file) => uploadEventImage(requireCode(), file),
+      refreshCalendarFeed,
     }),
-    [code, mode, events, ideas, loading, error, create, join, leave, repairSync],
+    [code, mode, events, ideas, loading, error, create, join, leave, repairSync, refreshCalendarFeed],
   )
 
   return <CoupleContext.Provider value={value}>{children}</CoupleContext.Provider>

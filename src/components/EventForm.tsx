@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import type { DateEvent } from '../lib/types'
 import { useCouple } from '../context/CoupleContext'
 import { LinkPreview } from './LinkPreview'
-import { normalizeUrl } from '../lib/linkPreview'
+import { fetchLinkPreview, normalizeUrl } from '../lib/linkPreview'
 import { newEventDraft } from '../lib/coupleApi'
 
 function toLocalInputValue(iso: string): string {
@@ -34,14 +34,22 @@ export function EventForm({
       setError('Zadej název rande.')
       return
     }
-    if ((form.link ?? '').trim() && !normalizeUrl(form.link)) {
+    const link = (form.link ?? '').trim()
+    if (link && !normalizeUrl(link)) {
       setError('Odkaz není platná URL.')
       return
     }
     setBusy(true)
     setError(null)
     try {
-      await saveEvent(form)
+      let previewImageUrl = form.previewImageUrl
+      if (!link) {
+        previewImageUrl = undefined
+      } else if (!previewImageUrl || form.link !== initial.link) {
+        const preview = await fetchLinkPreview(link)
+        previewImageUrl = preview?.imageUrl
+      }
+      await saveEvent({ ...form, link, previewImageUrl })
       onDone()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Uložení selhalo.')
@@ -92,9 +100,11 @@ export function EventForm({
         className="field"
         placeholder="Odkaz (volitelně)"
         value={form.link ?? ''}
-        onChange={(e) => setForm({ ...form, link: e.target.value })}
+        onChange={(e) =>
+          setForm({ ...form, link: e.target.value, previewImageUrl: undefined })
+        }
       />
-      {(form.link ?? '').trim() && <LinkPreview url={form.link} />}
+      {(form.link ?? '').trim() && <LinkPreview url={form.link} variant="media" />}
       <textarea
         className="field min-h-24"
         placeholder="Poznámka"

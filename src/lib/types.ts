@@ -15,6 +15,8 @@ export interface DateEvent {
   notes: string
   link: string
   imageUrl?: string
+  /** Cached Open Graph image from link (optional; older events may omit). */
+  previewImageUrl?: string
   isCompleted: boolean
   createdAt: string
   updatedAt: string

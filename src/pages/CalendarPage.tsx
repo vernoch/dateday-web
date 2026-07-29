@@ -124,7 +124,7 @@ export function CalendarPage() {
                   </p>
                   {e.location && <p className="mt-0.5 text-[14px] text-love">{e.location}</p>}
                 </button>
-                {e.link?.trim() && <LinkPreview url={e.link} className="mt-3" />}
+                {e.link?.trim() && <LinkPreview url={e.link} variant="media" className="mt-3" />}
                 <div className="mt-3 flex gap-2">
                   <button
                     className="btn-secondary flex-1 text-sm"

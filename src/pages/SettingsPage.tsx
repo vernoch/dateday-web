@@ -1,14 +1,31 @@
 import { useState } from 'react'
-import { Check, Copy, Heart, Smartphone } from 'lucide-react'
+import { CalendarPlus, Check, Copy, Download, Heart, Smartphone } from 'lucide-react'
 import { useCouple } from '../context/CoupleContext'
+import { getCalendarFeedPublicUrl } from '../lib/coupleApi'
 import { APP_VERSION } from '../lib/firebase'
+import { downloadCalendarIcs, toWebcalUrl } from '../lib/ics'
 
 export function SettingsPage() {
-  const { code, mode, status, cloudReady, create, join, leave, repairSync, error } = useCouple()
+  const {
+    code,
+    mode,
+    status,
+    cloudReady,
+    events,
+    create,
+    join,
+    leave,
+    repairSync,
+    refreshCalendarFeed,
+    error,
+  } = useCouple()
   const [joinCode, setJoinCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copiedFeed, setCopiedFeed] = useState(false)
+
+  const feedUrl = code && cloudReady && mode === 'cloud' ? getCalendarFeedPublicUrl(code) : null
 
   async function onCreate() {
     setBusy(true)
@@ -55,6 +72,45 @@ export function SettingsPage() {
     await navigator.clipboard.writeText(code)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  async function openAppleCalendar() {
+    setBusy(true)
+    setMsg(null)
+    try {
+      await refreshCalendarFeed()
+      const url = feedUrl || (code ? getCalendarFeedPublicUrl(code) : null)
+      if (!url) throw new Error('Kalendářový odkaz není dostupný.')
+      window.location.href = toWebcalUrl(url)
+      setMsg('Otevři Apple Kalendář a potvrď odběr. Změny se propsají při další aktualizaci (ne hned).')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Nepovedlo se připravit kalendář.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyFeedLink() {
+    setBusy(true)
+    setMsg(null)
+    try {
+      await refreshCalendarFeed()
+      const url = feedUrl || (code ? getCalendarFeedPublicUrl(code) : null)
+      if (!url) throw new Error('Kalendářový odkaz není dostupný.')
+      await navigator.clipboard.writeText(url)
+      setCopiedFeed(true)
+      setTimeout(() => setCopiedFeed(false), 1500)
+      setMsg('Odkaz zkopírován. Na druhém iPhonu: Nastavení → Kalendář → Účty → Přidat odběr kalendáře.')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Kopírování selhalo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function exportLocalIcs() {
+    downloadCalendarIcs(events, 'DateDay.ics')
+    setMsg('Soubor DateDay.ics stažen — otevři ho a přidej do Apple Kalendáře.')
   }
 
   return (
@@ -158,6 +214,62 @@ export function SettingsPage() {
                 Připojit se
               </button>
             </div>
+          </div>
+        )}
+      </div>
+
+      <p className="mb-2 px-1 text-[13px] font-semibold text-muted">Apple Kalendář</p>
+      <div className="settings-card mb-5">
+        {code && cloudReady && mode === 'cloud' ? (
+          <div>
+            <p className="px-4 pt-4 text-[14px] leading-relaxed text-muted">
+              Jednou přidej odběr DateDay do Apple Kalendáře. Nová a upravená rande se tam objeví
+              při další aktualizaci odběru (ne okamžitě).
+            </p>
+            <div className="mt-3 border-t border-black/[0.06] px-4 py-3">
+              <button
+                disabled={busy}
+                onClick={openAppleCalendar}
+                className="flex w-full items-center gap-3 text-left"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-love text-white">
+                  <CalendarPlus className="h-4 w-4" />
+                </div>
+                <span className="text-[16px] font-semibold text-love">Přidat do Apple Kalendáře</span>
+              </button>
+            </div>
+            <div className="border-t border-black/[0.06] px-4 py-3">
+              <button
+                disabled={busy}
+                onClick={copyFeedLink}
+                className="flex w-full items-center gap-3 text-left"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chip text-ink">
+                  {copiedFeed ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </div>
+                <span className="text-[16px] font-semibold">Kopírovat odkaz odběru</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4">
+            <p className="text-[14px] leading-relaxed text-muted">
+              {code
+                ? 'Pro živý odběr potřebuješ cloud sync. Mezitím můžeš stáhnout všechna rande jako soubor.'
+                : 'Bez páru můžeš stáhnout aktuální rande jako .ics a jednorázově je přidat do Kalendáře.'}
+            </p>
+            <button
+              type="button"
+              onClick={exportLocalIcs}
+              className="btn-secondary mt-3 flex w-full items-center justify-center gap-2 text-sm"
+            >
+              <Download className="h-4 w-4" />
+              Stáhnout DateDay.ics
+            </button>
           </div>
         )}
       </div>

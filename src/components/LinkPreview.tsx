@@ -9,7 +9,7 @@ import {
 
 type LinkPreviewProps = {
   url: string
-  variant?: 'hero' | 'compact'
+  variant?: 'hero' | 'compact' | 'media'
   className?: string
 }
 
@@ -45,6 +45,35 @@ export function LinkPreview({ url, variant = 'compact', className = '' }: LinkPr
 
   const hostname = linkHostname(preview.url)
   const title = preview.title || hostname
+
+  if (variant === 'media') {
+    return (
+      <a
+        href={preview.url}
+        target="_blank"
+        rel="noreferrer noopener"
+        onClick={(e) => e.stopPropagation()}
+        className={`block overflow-hidden rounded-2xl bg-white ${className}`}
+      >
+        {preview.imageUrl ? (
+          <img src={preview.imageUrl} alt="" className="h-40 w-full object-cover" />
+        ) : (
+          <div className="hero-gradient flex h-28 items-center justify-center text-3xl text-white/80">
+            {loading ? '…' : '🔗'}
+          </div>
+        )}
+        <div className="space-y-0.5 px-3 py-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="line-clamp-2 text-[15px] font-semibold">
+              {loading ? 'Načítám náhled…' : title}
+            </p>
+            <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+          </div>
+          <p className="text-[12px] text-love">{hostname}</p>
+        </div>
+      </a>
+    )
+  }
 
   if (variant === 'hero') {
     return (
