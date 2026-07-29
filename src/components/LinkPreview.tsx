@@ -58,7 +58,7 @@ export function LinkPreview({ url, variant = 'compact', className = '' }: LinkPr
         {preview.imageUrl ? (
           <img src={preview.imageUrl} alt="" className="h-48 w-full object-cover" />
         ) : (
-          <div className="flex h-32 items-center justify-center bg-gradient-to-br from-love-soft to-white text-4xl">
+          <div className="hero-gradient flex h-32 items-center justify-center text-4xl text-white/80">
             🔗
           </div>
         )}
@@ -87,7 +87,7 @@ export function LinkPreview({ url, variant = 'compact', className = '' }: LinkPr
       {preview.imageUrl ? (
         <img src={preview.imageUrl} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
       ) : (
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-love-soft text-xl">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-chip text-xl">
           🔗
         </div>
       )}

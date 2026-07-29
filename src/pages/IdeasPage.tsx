@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { ChevronRight, Plus, Star } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
-import { LinkPreview } from '../components/LinkPreview'
 import { IdeaForm } from '../components/IdeaForm'
 import { newIdeaDraft } from '../lib/coupleApi'
 import {
-  CATEGORY_EMOJI,
   IDEA_CATEGORIES,
   IDEA_STATUSES,
   type IdeaCategory,
   type IdeaStatus,
 } from '../lib/types'
+import {
+  ALL_CATEGORY_STYLE,
+  CATEGORY_STYLE,
+  STATUS_STYLE,
+} from '../lib/categoryStyles'
 
 export function IdeasPage() {
-  const { ideas, deleteIdea, saveIdea } = useCouple()
+  const { ideas } = useCouple()
   const [searchParams] = useSearchParams()
   const [category, setCategory] = useState<IdeaCategory | 'Vše'>('Vše')
   const [status, setStatus] = useState<IdeaStatus | 'Vše'>('Vše')
@@ -39,87 +42,103 @@ export function IdeasPage() {
   const editIdea = ideas.find((i) => i.id === editId)
 
   return (
-    <div className="px-5 pt-8">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Nápady</h1>
+    <div className="px-5 pt-6">
+      <div className="mb-5 flex items-center justify-between">
+        <h1 className="text-[34px] font-bold tracking-tight">Nápady</h1>
         <button
           onClick={() => setShowAdd(true)}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-love text-white"
+          className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-love shadow-md shadow-black/10"
+          aria-label="Přidat nápad"
         >
-          <Plus className="h-5 w-5" />
+          <Plus className="h-6 w-6" strokeWidth={2.5} />
         </button>
       </div>
 
-      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-        {(['Vše', ...IDEA_CATEGORIES] as const).map((c) => (
-          <button
-            key={c}
-            onClick={() => setCategory(c)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-sm ${
-              category === c ? 'bg-love text-white' : 'bg-white text-muted'
-            }`}
-          >
-            {c === 'Vše' ? 'Vše' : `${CATEGORY_EMOJI[c]} ${c}`}
-          </button>
-        ))}
-      </div>
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {(['Vše', ...IDEA_STATUSES] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setStatus(s)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
-              status === s ? 'bg-love-dark text-white' : 'bg-white/80 text-muted'
-            }`}
-          >
-            {s}
-          </button>
-        ))}
+      <div className="no-scrollbar mb-3 flex gap-2 overflow-x-auto pb-1">
+        {(['Vše', ...IDEA_CATEGORIES] as const).map((c) => {
+          const active = category === c
+          const style = c === 'Vše' ? ALL_CATEGORY_STYLE : CATEGORY_STYLE[c]
+          const Icon = style.Icon
+          return (
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              className="flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-[14px] font-semibold transition"
+              style={
+                active
+                  ? { backgroundColor: '#ff3b5c', color: '#fff' }
+                  : { backgroundColor: style.bg, color: style.fg }
+              }
+            >
+              <Icon className="h-4 w-4" strokeWidth={2.2} />
+              {c}
+            </button>
+          )
+        })}
       </div>
 
-      <div className="space-y-3">
+      <div className="no-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1">
+        {(['Vše', ...IDEA_STATUSES] as const).map((s) => {
+          const active = status === s
+          return (
+            <button
+              key={s}
+              onClick={() => setStatus(s)}
+              className={`shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold transition ${
+                active ? 'bg-ink text-white' : 'bg-chip text-ink'
+              }`}
+            >
+              {s}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="space-y-3 pb-4">
         {filtered.length === 0 && (
-          <p className="text-sm text-muted">Žádné nápady v tomto filtru.</p>
+          <p className="py-10 text-center text-[15px] text-muted">
+            Žádné nápady v tomto filtru.
+          </p>
         )}
-        {filtered.map((idea) => (
-          <div key={idea.id} className="card p-4">
-            <button className="w-full text-left" onClick={() => setEditId(idea.id)}>
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold">
-                  {CATEGORY_EMOJI[idea.category]} {idea.title}
+        {filtered.map((idea) => {
+          const catStyle = CATEGORY_STYLE[idea.category]
+          const CatIcon = catStyle.Icon
+          const statusStyle = STATUS_STYLE[idea.status]
+          return (
+            <button
+              key={idea.id}
+              type="button"
+              onClick={() => setEditId(idea.id)}
+              className="flex w-full items-center gap-3 rounded-[1.35rem] bg-chip p-3.5 text-left transition active:scale-[0.99]"
+            >
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: catStyle.bg }}
+              >
+                <CatIcon className="h-5 w-5" style={{ color: catStyle.fg }} strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[17px] font-bold">{idea.title}</p>
+                {idea.notes && (
+                  <p className="mt-0.5 truncate text-[14px] text-muted">{idea.notes}</p>
+                )}
+                <p className="mt-0.5 text-[13px] font-medium" style={{ color: catStyle.fg }}>
+                  {idea.category}
                 </p>
-                <span className="rounded-full bg-love-soft/60 px-2 py-0.5 text-[11px] text-love-dark">
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold"
+                  style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}
+                >
+                  {idea.status === 'Wishlist' && <Star className="h-3 w-3 fill-current" />}
                   {idea.status}
                 </span>
+                <ChevronRight className="h-5 w-5 text-muted/50" />
               </div>
-              {idea.notes && (
-                <p className="mt-1 line-clamp-2 text-sm text-muted">{idea.notes}</p>
-              )}
             </button>
-            {idea.link?.trim() && <LinkPreview url={idea.link} className="mt-3" />}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {IDEA_STATUSES.map((s) => (
-                <button
-                  key={s}
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
-                    idea.status === s ? 'bg-love text-white' : 'bg-black/5 text-muted'
-                  }`}
-                  onClick={() => saveIdea({ ...idea, status: s })}
-                >
-                  {s}
-                </button>
-              ))}
-              <button
-                className="ml-auto text-[11px] text-red-600"
-                onClick={async () => {
-                  if (confirm('Smazat nápad?')) await deleteIdea(idea.id)
-                }}
-              >
-                Smazat
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {showAdd && (
