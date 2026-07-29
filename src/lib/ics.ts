@@ -1,4 +1,5 @@
 import type { DateEvent } from './types'
+import { normalizeUrl } from './linkPreview'
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -7,7 +8,13 @@ function pad(n: number): string {
 /** Format as UTC ICS timestamp: 20260731T180000Z */
 export function toIcsUtc(iso: string): string {
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return toIcsUtc(new Date().toISOString())
+  if (Number.isNaN(d.getTime())) {
+    const now = new Date()
+    return (
+      `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}` +
+      `T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`
+    )
+  }
   return (
     `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}` +
     `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
@@ -23,9 +30,10 @@ function escapeIcsText(value: string): string {
 }
 
 function foldLine(line: string): string {
-  if (line.length <= 75) return line
+  const bytes = line
+  if (bytes.length <= 75) return bytes
   const parts: string[] = []
-  let remaining = line
+  let remaining = bytes
   parts.push(remaining.slice(0, 75))
   remaining = remaining.slice(75)
   while (remaining.length > 0) {
@@ -35,33 +43,39 @@ function foldLine(line: string): string {
   return parts.join('\r\n')
 }
 
+function sanitizeUid(id: string): string {
+  const cleaned = id.replace(/[^A-Za-z0-9-]/g, '')
+  return cleaned || `dateday-${Date.now()}`
+}
+
 function eventToVevent(event: DateEvent): string {
-  const start = toIcsUtc(event.date)
-  const endDate = new Date(event.date)
-  if (!Number.isNaN(endDate.getTime())) endDate.setHours(endDate.getHours() + 2)
-  const end = toIcsUtc(endDate.toISOString())
+  const startMs = new Date(event.date).getTime()
+  const startIso = Number.isNaN(startMs) ? new Date().toISOString() : new Date(startMs).toISOString()
+  const endIso = new Date(new Date(startIso).getTime() + 2 * 60 * 60 * 1000).toISOString()
   const stamp = toIcsUtc(event.updatedAt || event.createdAt || new Date().toISOString())
-  const descParts = [event.notes?.trim(), event.link?.trim()].filter(Boolean)
+  const start = toIcsUtc(startIso)
+  const end = toIcsUtc(endIso)
+  const absoluteLink = event.link?.trim() ? normalizeUrl(event.link) : null
+  const descParts = [event.notes?.trim(), absoluteLink || undefined].filter(Boolean) as string[]
+
   const lines = [
     'BEGIN:VEVENT',
-    `UID:${event.id}@dateday`,
+    `UID:${sanitizeUid(event.id)}@dateday.app`,
     `DTSTAMP:${stamp}`,
-    `LAST-MODIFIED:${stamp}`,
     `DTSTART:${start}`,
     `DTEND:${end}`,
-    `SUMMARY:${escapeIcsText(event.title || 'Rande')}`,
+    `SUMMARY:${escapeIcsText((event.title || 'Rande').slice(0, 200))}`,
+    'STATUS:CONFIRMED',
+    'TRANSP:OPAQUE',
   ]
   if (event.location?.trim()) {
-    lines.push(`LOCATION:${escapeIcsText(event.location.trim())}`)
+    lines.push(`LOCATION:${escapeIcsText(event.location.trim().slice(0, 200))}`)
   }
   if (descParts.length) {
-    lines.push(`DESCRIPTION:${escapeIcsText(descParts.join('\n'))}`)
+    lines.push(`DESCRIPTION:${escapeIcsText(descParts.join('\n').slice(0, 1000))}`)
   }
-  if (event.link?.trim()) {
-    lines.push(`URL:${event.link.trim()}`)
-  }
-  if (event.isCompleted) {
-    lines.push('STATUS:COMPLETED')
+  if (absoluteLink) {
+    lines.push(`URL:${absoluteLink}`)
   }
   lines.push('END:VEVENT')
   return lines.map(foldLine).join('\r\n')
@@ -69,8 +83,11 @@ function eventToVevent(event: DateEvent): string {
 
 /** Build a VCALENDAR string for Apple Calendar / any ICS client. */
 export function buildCalendarIcs(events: DateEvent[], calendarName = 'DateDay'): string {
-  const sorted = [...events].sort((a, b) => +new Date(a.date) - +new Date(b.date))
-  const body = sorted.map(eventToVevent).join('\r\n')
+  const sorted = [...events]
+    .filter((e) => e.title?.trim() || e.date)
+    .sort((a, b) => +new Date(a.date) - +new Date(b.date))
+
+  const vevents = sorted.map(eventToVevent).join('\r\n')
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -78,32 +95,26 @@ export function buildCalendarIcs(events: DateEvent[], calendarName = 'DateDay'):
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${escapeIcsText(calendarName)}`,
-    `NAME:${escapeIcsText(calendarName)}`,
-    body,
-    'END:VCALENDAR',
   ]
-  return `${lines.filter(Boolean).join('\r\n')}\r\n`
+  if (vevents) lines.push(vevents)
+  lines.push('END:VCALENDAR')
+  return `${lines.map(foldLine).join('\r\n')}\r\n`
 }
 
 /** Trigger a local .ics file download / open (works on iPhone Safari). */
 export function downloadCalendarIcs(events: DateEvent[], filename = 'DateDay.ics') {
+  if (events.length === 0) return
   const ics = buildCalendarIcs(events)
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
+  // data: URL is more reliable on iOS than blob: for Calendar import
+  const dataUrl = `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`
 
-  // Prefer opening the calendar file (iOS Safari → Calendar). Fallback = download.
-  const opened = window.open(url, '_blank')
-  if (!opened) {
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.rel = 'noopener'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-  }
-
-  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = filename
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
 }
 
 /** Open a single event in Apple Calendar (one-shot add). */

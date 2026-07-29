@@ -300,7 +300,7 @@ export async function publishCalendarFeed(code: string, events: DateEvent[]): Pr
   const ics = buildCalendarIcs(events, 'DateDay')
   const r = ref(storage, CALENDAR_PATH(code))
   await uploadString(r, ics, 'raw', {
-    contentType: 'text/calendar; charset=utf-8',
+    contentType: 'text/calendar',
     cacheControl: 'public, max-age=300',
   })
   return getCalendarFeedPublicUrl(code) || (await getDownloadURL(r))
