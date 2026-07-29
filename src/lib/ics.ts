@@ -85,16 +85,25 @@ export function buildCalendarIcs(events: DateEvent[], calendarName = 'DateDay'):
   return `${lines.filter(Boolean).join('\r\n')}\r\n`
 }
 
-/** Trigger a local .ics file download (for local mode / one-shot export). */
+/** Trigger a local .ics file download / open (works on iPhone Safari). */
 export function downloadCalendarIcs(events: DateEvent[], filename = 'DateDay.ics') {
   const ics = buildCalendarIcs(events)
   const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+
+  // Prefer opening the calendar file (iOS Safari → Calendar). Fallback = download.
+  const opened = window.open(url, '_blank')
+  if (!opened) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.rel = 'noopener'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 /** Convert https URL to webcal:// for Apple Calendar subscribe. */
