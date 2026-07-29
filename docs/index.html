@@ -15,16 +15,28 @@
     <meta http-equiv="Expires" content="0" />
     <link rel="icon" type="image/svg+xml" href="/dateday-web/favicon-x.svg" />
     <title>DateDay</title>
-    <meta name="dateday-version" content="1.2.3" />
+    <meta name="dateday-version" content="1.2.4" />
     <script>
+      // Bust stale home-screen / Safari caches when version changes.
+      try {
+        var v = '1.2.4'
+        if (localStorage.getItem('dateday.appVersion') !== v) {
+          localStorage.setItem('dateday.appVersion', v)
+          if ('caches' in window) {
+            caches.keys().then(function (keys) {
+              keys.forEach(function (k) { caches.delete(k) })
+            })
+          }
+        }
+      } catch (e) {}
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then((regs) => {
           for (const r of regs) r.unregister()
         })
       }
     </script>
-    <script type="module" crossorigin src="/dateday-web/assets/index-BgvYhyqh.js"></script>
-    <link rel="stylesheet" crossorigin href="/dateday-web/assets/index-BNjijb2k.css">
+    <script type="module" crossorigin src="/dateday-web/assets/index-Den0MA77.js"></script>
+    <link rel="stylesheet" crossorigin href="/dateday-web/assets/index-dP-6FqAs.css">
   </head>
   <body>
     <div id="root"></div>

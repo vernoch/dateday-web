@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronRight, Plus, Star } from 'lucide-react'
+import { CalendarPlus, ChevronRight, Plus, Star } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
@@ -8,6 +8,7 @@ import { newIdeaDraft } from '../lib/coupleApi'
 import {
   IDEA_CATEGORIES,
   IDEA_STATUSES,
+  type Idea,
   type IdeaCategory,
   type IdeaStatus,
 } from '../lib/types'
@@ -24,6 +25,7 @@ export function IdeasPage() {
   const [status, setStatus] = useState<IdeaStatus | 'Vše'>('Vše')
   const [showAdd, setShowAdd] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
+  const [scheduleIdea, setScheduleIdea] = useState<Idea | null>(null)
 
   useEffect(() => {
     const fromUrl = searchParams.get('category')
@@ -105,38 +107,49 @@ export function IdeasPage() {
           const CatIcon = catStyle.Icon
           const statusStyle = STATUS_STYLE[idea.status]
           return (
-            <button
-              key={idea.id}
-              type="button"
-              onClick={() => setEditId(idea.id)}
-              className="flex w-full items-center gap-3 rounded-[1.35rem] bg-chip p-3.5 text-left transition active:scale-[0.99]"
-            >
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: catStyle.bg }}
+            <div key={idea.id} className="overflow-hidden rounded-[1.35rem] bg-chip">
+              <button
+                type="button"
+                onClick={() => setEditId(idea.id)}
+                className="flex w-full items-center gap-3 p-3.5 text-left transition active:scale-[0.99]"
               >
-                <CatIcon className="h-5 w-5" style={{ color: catStyle.fg }} strokeWidth={2.2} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[17px] font-bold">{idea.title}</p>
-                {idea.notes && (
-                  <p className="mt-0.5 truncate text-[14px] text-muted">{idea.notes}</p>
-                )}
-                <p className="mt-0.5 text-[13px] font-medium" style={{ color: catStyle.fg }}>
-                  {idea.category}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold"
-                  style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}
+                <div
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+                  style={{ backgroundColor: catStyle.bg }}
                 >
-                  {idea.status === 'Wishlist' && <Star className="h-3 w-3 fill-current" />}
-                  {idea.status}
-                </span>
-                <ChevronRight className="h-5 w-5 text-muted/50" />
+                  <CatIcon className="h-5 w-5" style={{ color: catStyle.fg }} strokeWidth={2.2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[17px] font-bold">{idea.title}</p>
+                  {idea.notes && (
+                    <p className="mt-0.5 truncate text-[14px] text-muted">{idea.notes}</p>
+                  )}
+                  <p className="mt-0.5 text-[13px] font-medium" style={{ color: catStyle.fg }}>
+                    {idea.category}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold"
+                    style={{ backgroundColor: statusStyle.bg, color: statusStyle.fg }}
+                  >
+                    {idea.status === 'Wishlist' && <Star className="h-3 w-3 fill-current" />}
+                    {idea.status}
+                  </span>
+                  <ChevronRight className="h-5 w-5 text-muted/50" />
+                </div>
+              </button>
+              <div className="border-t border-black/[0.06] px-3.5 pb-3.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setScheduleIdea(idea)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-love py-2.5 text-[14px] font-semibold text-white"
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  Add date
+                </button>
               </div>
-            </button>
+            </div>
           )
         })}
       </div>
@@ -149,6 +162,15 @@ export function IdeasPage() {
       {editIdea && (
         <Modal title="Upravit nápad" onClose={() => setEditId(null)}>
           <IdeaForm initial={editIdea} onDone={() => setEditId(null)} />
+        </Modal>
+      )}
+      {scheduleIdea && (
+        <Modal title="Add date" onClose={() => setScheduleIdea(null)}>
+          <IdeaForm
+            initial={scheduleIdea}
+            startWithAddDate
+            onDone={() => setScheduleIdea(null)}
+          />
         </Modal>
       )}
     </div>

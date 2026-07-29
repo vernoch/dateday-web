@@ -11,15 +11,17 @@ import { openEventInAppleCalendar } from '../lib/ics'
 export function IdeaForm({
   initial,
   onDone,
+  startWithAddDate = false,
 }: {
   initial: Idea
   onDone: () => void
+  startWithAddDate?: boolean
 }) {
   const { ideas, saveIdea, saveEvent, deleteIdea } = useCouple()
   const [form, setForm] = useState(() => newIdeaDraft(initial))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [scheduling, setScheduling] = useState(false)
+  const [scheduling, setScheduling] = useState(startWithAddDate)
   const [dateValue, setDateValue] = useState(() =>
     format(new Date(Date.now() + 24 * 60 * 60 * 1000), "yyyy-MM-dd'T'HH:mm"),
   )
@@ -152,7 +154,7 @@ export function IdeaForm({
         <button
           type="button"
           disabled={busy}
-          className="btn-secondary w-full"
+          className="flex w-full items-center justify-center rounded-full bg-love px-4 py-3.5 text-[16px] font-semibold text-white"
           onClick={() => {
             setScheduling(true)
             setError(null)
