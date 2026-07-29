@@ -280,6 +280,29 @@ export async function uploadEventImage(code: string, file: File): Promise<string
 
 const CALENDAR_PATH = (code: string) => `couples/${code}/calendar.ics`
 
+function calendarPublishErrorMessage(err: unknown): string {
+  const code =
+    err && typeof err === 'object' && 'code' in err ? String((err as { code?: string }).code) : ''
+  const msg = err instanceof Error ? err.message : String(err)
+  if (
+    code.includes('storage/unknown') ||
+    code.includes('storage/object-not-found') ||
+    /not found|404/i.test(msg)
+  ) {
+    return (
+      'Firebase Storage není připravené. V Firebase Console → Storage → Get started, ' +
+      'pak v Rules vlož storage.rules a Publish.'
+    )
+  }
+  if (code.includes('storage/unauthorized') || /permission|unauthorized|403/i.test(msg)) {
+    return (
+      'Storage nepovoluje zápis kalendáře. V Firebase Console → Storage → Rules ' +
+      'nahraj soubor storage.rules a klikni Publish.'
+    )
+  }
+  return msg || 'Nepodařilo se nahrát kalendářový feed.'
+}
+
 /** Stable public HTTPS URL for the couple calendar feed (no auth token required once rules allow public read). */
 export function getCalendarFeedPublicUrl(code: string): string | null {
   if (!isFirebaseConfigured) return null
@@ -288,6 +311,18 @@ export function getCalendarFeedPublicUrl(code: string): string | null {
   if (!bucket) return null
   const path = encodeURIComponent(CALENDAR_PATH(code))
   return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${path}?alt=media`
+}
+
+/** True when the HTTPS feed returns a VCALENDAR body. */
+export async function isCalendarFeedReachable(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { cache: 'no-store' })
+    if (!res.ok) return false
+    const text = await res.text()
+    return text.includes('BEGIN:VCALENDAR')
+  } catch {
+    return false
+  }
 }
 
 /** Upload / refresh the shared .ics feed for Apple Calendar subscription. */
@@ -299,11 +334,28 @@ export async function publishCalendarFeed(code: string, events: DateEvent[]): Pr
   const { storage } = getFirebase()
   const ics = buildCalendarIcs(events, 'DateDay')
   const r = ref(storage, CALENDAR_PATH(code))
-  await uploadString(r, ics, 'raw', {
-    contentType: 'text/calendar',
-    cacheControl: 'public, max-age=300',
-  })
-  return getCalendarFeedPublicUrl(code) || (await getDownloadURL(r))
+  try {
+    await uploadString(r, ics, 'raw', {
+      contentType: 'text/calendar',
+      cacheControl: 'public, max-age=300',
+    })
+  } catch (err) {
+    throw new Error(calendarPublishErrorMessage(err))
+  }
+
+  const publicUrl = getCalendarFeedPublicUrl(code)
+  if (publicUrl && (await isCalendarFeedReachable(publicUrl))) {
+    return publicUrl
+  }
+
+  // Fallback: tokenized download URL works even before public-read rules are published.
+  try {
+    const tokenUrl = await getDownloadURL(r)
+    if (await isCalendarFeedReachable(tokenUrl)) return tokenUrl
+    return publicUrl || tokenUrl
+  } catch (err) {
+    throw new Error(calendarPublishErrorMessage(err))
+  }
 }
 
 export function newEventDraft(partial?: Partial<DateEvent>): DateEvent {

@@ -17,7 +17,8 @@ Bez toho by každý měl jen svoje data v prohlížeči.
 2. **Build → Authentication → Get started → Sign-in method → Anonymous → Enable**
 3. **Build → Firestore Database → Create database → Start in test mode** (region Europe)
 4. Záložka **Rules** → vlož obsah ze souboru `firestore.rules` → Publish
-5. **Build → Storage → Get started** → Rules ze souboru `storage.rules` → Publish
+5. **Build → Storage → Get started** (vyber region, ideálně stejný jako Firestore) → **Rules** → vlož celý obsah `storage.rules` → **Publish**  
+   Bez tohoto kroku živý odběr Apple Kalendáře **nefunguje** (soubor `calendar.ics` se vůbec nevytvoří).
 6. ⚙️ Project settings → **Your apps** → Web (`</>`) → nickname `dateday-web`
 7. Zkopíruj hodnoty do souboru `.env` (z `.env.example`):
 

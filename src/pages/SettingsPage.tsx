@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarPlus, Check, Copy, Download, Heart, Smartphone } from 'lucide-react'
 import { useCouple } from '../context/CoupleContext'
-import { getCalendarFeedPublicUrl } from '../lib/coupleApi'
+import { getCalendarFeedPublicUrl, isCalendarFeedReachable } from '../lib/coupleApi'
 import { APP_VERSION } from '../lib/firebase'
 import { downloadCalendarIcs, toWebcalUrl } from '../lib/ics'
 import { getAutoAppleCalendar, setAutoAppleCalendar } from '../lib/appleCalendarPrefs'
@@ -42,6 +42,8 @@ export function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [copiedFeed, setCopiedFeed] = useState(false)
   const [feedReady, setFeedReady] = useState(false)
+  const [feedBusy, setFeedBusy] = useState(false)
+  const [liveFeedUrl, setLiveFeedUrl] = useState<string | null>(null)
   const [autoApple, setAutoApple] = useState(() => getAutoAppleCalendar())
 
   const feedHttps = useMemo(() => {
@@ -49,20 +51,33 @@ export function SettingsPage() {
     return getCalendarFeedPublicUrl(code)
   }, [code, cloudReady, mode])
 
-  const feedWebcal = feedHttps ? toWebcalUrl(feedHttps) : null
+  const activeFeedUrl = liveFeedUrl || feedHttps
+  const feedWebcal = activeFeedUrl ? toWebcalUrl(activeFeedUrl) : null
 
   useEffect(() => {
     if (!feedHttps) {
       setFeedReady(false)
+      setLiveFeedUrl(null)
       return
     }
     let cancelled = false
+    setFeedBusy(true)
     void refreshCalendarFeed()
-      .then(() => {
-        if (!cancelled) setFeedReady(true)
+      .then(async (url) => {
+        if (cancelled) return
+        const resolved = url || feedHttps
+        const ok = resolved ? await isCalendarFeedReachable(resolved) : false
+        if (cancelled) return
+        setLiveFeedUrl(ok ? resolved : null)
+        setFeedReady(ok)
       })
       .catch(() => {
-        if (!cancelled) setFeedReady(false)
+        if (cancelled) return
+        setFeedReady(false)
+        setLiveFeedUrl(null)
+      })
+      .finally(() => {
+        if (!cancelled) setFeedBusy(false)
       })
     return () => {
       cancelled = true
@@ -116,23 +131,60 @@ export function SettingsPage() {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  async function copyFeedLink() {
-    if (!feedHttps) {
-      setMsg('Odkaz není dostupný — nejdřív vytvoř / připoj pár s cloud sync.')
-      return
-    }
+  async function ensureFeedReady(): Promise<string | null> {
+    setFeedBusy(true)
     setMsg(null)
     try {
-      await copyText(feedHttps)
+      const url = (await refreshCalendarFeed()) || feedHttps
+      if (!url) {
+        setMsg('Odkaz není dostupný — nejdřív vytvoř / připoj pár s cloud sync.')
+        setFeedReady(false)
+        return null
+      }
+      const ok = await isCalendarFeedReachable(url)
+      if (!ok) {
+        setFeedReady(false)
+        setLiveFeedUrl(null)
+        setMsg(
+          'Feed ještě není online. V Firebase Console zapni Storage, publikuj storage.rules a zkus znovu.',
+        )
+        return null
+      }
+      setLiveFeedUrl(url)
+      setFeedReady(true)
+      return url
+    } catch (e) {
+      setFeedReady(false)
+      setLiveFeedUrl(null)
+      setMsg(e instanceof Error ? e.message : 'Nepodařilo se připravit kalendářový feed.')
+      return null
+    } finally {
+      setFeedBusy(false)
+    }
+  }
+
+  async function copyFeedLink() {
+    const url = await ensureFeedReady()
+    if (!url) return
+    try {
+      await copyText(url)
       setCopiedFeed(true)
       setTimeout(() => setCopiedFeed(false), 2000)
       setMsg(
-        'Odkaz zkopírován. iPhone: Nastavení → Kalendář → Účty → Přidat účet → Jiný → Přidat odběrný kalendář → vlož odkaz.',
+        'Odkaz zkopírován. Mac: Kalendář → Soubor → Nový odběr kalendáře → vlož odkaz. iPhone: Nastavení → Kalendář → Účty → Přidat účet → Jiný → Přidat odběrný kalendář.',
       )
-      void refreshCalendarFeed().then(() => setFeedReady(true)).catch(() => {})
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Kopírování selhalo.')
     }
+  }
+
+  async function openLiveSubscription(e: { preventDefault: () => void }) {
+    e.preventDefault()
+    const url = await ensureFeedReady()
+    if (!url) return
+    const webcal = toWebcalUrl(url)
+    setMsg('Potvrď odběr v Kalendáři. Nová rande se pak budou doplňovat sama (s prodlevou).')
+    window.location.href = webcal
   }
 
   function openIcsNow() {
@@ -285,17 +337,13 @@ export function SettingsPage() {
             <span className="text-[16px] font-semibold">Přidat všechna rande teď</span>
           </button>
 
-          {feedWebcal && feedHttps && (
+          {feedWebcal && activeFeedUrl && (
             <>
-              <a
-                href={feedWebcal}
-                onClick={() => {
-                  void refreshCalendarFeed().then(() => setFeedReady(true)).catch(() => {})
-                  setMsg(
-                    'Potvrď odběr v Kalendáři. Nová rande se pak budou doplňovat sama (s prodlevou iOS).',
-                  )
-                }}
-                className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-chip px-4 py-3.5 text-left"
+              <button
+                type="button"
+                disabled={feedBusy}
+                onClick={openLiveSubscription}
+                className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-chip px-4 py-3.5 text-left disabled:opacity-60"
               >
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-love text-white">
                   <CalendarPlus className="h-4 w-4" />
@@ -305,24 +353,29 @@ export function SettingsPage() {
                     Zapnout živý odběr
                   </span>
                   <span className="block text-[12px] text-muted">
-                    {feedReady ? 'Feed online — stačí jednou' : 'Připravuji feed…'}
+                    {feedBusy
+                      ? 'Nahrávám feed…'
+                      : feedReady
+                        ? 'Feed online — stačí jednou'
+                        : 'Feed není online — nejdřív Storage'}
                   </span>
                 </span>
-              </a>
+              </button>
 
               <a
-                href={feedHttps}
+                href={activeFeedUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-3 block break-all rounded-2xl bg-white px-4 py-3 text-[13px] text-love underline"
               >
-                {feedHttps}
+                {activeFeedUrl}
               </a>
 
               <button
                 type="button"
+                disabled={feedBusy}
                 onClick={copyFeedLink}
-                className="mt-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"
+                className="mt-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left disabled:opacity-60"
               >
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-chip text-ink">
                   {copiedFeed ? (
@@ -333,6 +386,13 @@ export function SettingsPage() {
                 </div>
                 <span className="text-[16px] font-semibold">Kopírovat odkaz odběru</span>
               </button>
+
+              {!feedReady && !feedBusy && (
+                <p className="mt-3 text-[13px] leading-relaxed text-amber-800">
+                  Firebase Storage musí být zapnuté: Console → Build → Storage → Get started → Rules
+                  ze souboru <span className="font-semibold">storage.rules</span> → Publish.
+                </p>
+              )}
             </>
           )}
         </div>
