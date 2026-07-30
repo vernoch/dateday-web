@@ -25,7 +25,13 @@ import {
   type AppMode,
 } from '../lib/coupleApi'
 import { isFirebaseConfigured } from '../lib/firebase'
-import type { DateEvent, Idea } from '../lib/types'
+import {
+  isInvitationSender,
+  respondInvitation,
+  sendInvitation as sendInvitationApi,
+  subscribeInvitation,
+} from '../lib/inviteApi'
+import type { DateEvent, DateInvitation, Idea, InviteDraft } from '../lib/types'
 
 interface CoupleContextValue {
   code: string | null
@@ -33,6 +39,10 @@ interface CoupleContextValue {
   cloudReady: boolean
   events: DateEvent[]
   ideas: Idea[]
+  invitation: DateInvitation | null
+  incomingInvitation: DateInvitation | null
+  outgoingPendingInvitation: DateInvitation | null
+  outgoingInvitationResult: DateInvitation | null
   loading: boolean
   error: string | null
   status: string
@@ -46,6 +56,10 @@ interface CoupleContextValue {
   deleteIdea: (id: string) => Promise<void>
   uploadImage: (file: File) => Promise<string>
   refreshCalendarFeed: () => Promise<string | null>
+  sendInvitation: (draft: InviteDraft) => Promise<void>
+  acceptInvitation: (invitation: DateInvitation) => Promise<void>
+  declineInvitation: (invitation: DateInvitation) => Promise<void>
+  dismissInvitationNotice: () => void
 }
 
 const CoupleContext = createContext<CoupleContextValue | null>(null)
@@ -55,6 +69,8 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<AppMode>(() => getAppMode())
   const [events, setEvents] = useState<DateEvent[]>([])
   const [ideas, setIdeas] = useState<Idea[]>([])
+  const [invitation, setInvitation] = useState<DateInvitation | null>(null)
+  const [inviteDismissed, setInviteDismissed] = useState(false)
   const [loading, setLoading] = useState(Boolean(getSavedCoupleCode()))
   const [error, setError] = useState<string | null>(null)
   const feedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -77,9 +93,7 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       if (feedTimer.current) clearTimeout(feedTimer.current)
       feedTimer.current = setTimeout(() => {
         lastFeedSig.current = sig
-        void publishCalendarFeed(coupleCode, nextEvents).catch(() => {
-          // Feed publish is best-effort; don't block the UI.
-        })
+        void publishCalendarFeed(coupleCode, nextEvents).catch(() => {})
       }, 800)
     },
     [mode],
@@ -89,6 +103,7 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
     if (!code) {
       setEvents([])
       setIdeas([])
+      setInvitation(null)
       setLoading(false)
       return
     }
@@ -113,6 +128,25 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       if (feedTimer.current) clearTimeout(feedTimer.current)
     }
   }, [code, mode, scheduleCalendarPublish])
+
+  useEffect(() => {
+    if (!code) {
+      setInvitation(null)
+      return
+    }
+    const unsub = subscribeInvitation(
+      code,
+      mode,
+      (inv) => {
+        setInvitation(inv)
+        if (inv?.status === 'pending' && !isInvitationSender(inv)) {
+          setInviteDismissed(false)
+        }
+      },
+      (message) => setError(message),
+    )
+    return unsub
+  }, [code, mode])
 
   const create = useCallback(async () => {
     setError(null)
@@ -141,6 +175,7 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
     setCode(null)
     setEvents([])
     setIdeas([])
+    setInvitation(null)
     lastFeedSig.current = ''
   }, [])
 
@@ -155,6 +190,58 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
     return publishCalendarFeed(code, events)
   }, [code, mode, events])
 
+  const sendInvitation = useCallback(
+    async (draft: InviteDraft) => {
+      const c = requireCode()
+      if (mode !== 'cloud') throw new Error('Pozvánka funguje jen s cloud párem.')
+      setError(null)
+      await sendInvitationApi(c, draft)
+      setInviteDismissed(false)
+    },
+    [code, mode],
+  )
+
+  const acceptInvitation = useCallback(
+    async (inv: DateInvitation) => {
+      const c = requireCode()
+      await respondInvitation(c, mode, inv, 'accepted')
+      lastFeedSig.current = ''
+      void publishCalendarFeed(c, events).catch(() => {})
+    },
+    [code, mode, events],
+  )
+
+  const declineInvitation = useCallback(
+    async (inv: DateInvitation) => {
+      await respondInvitation(requireCode(), mode, inv, 'declined')
+    },
+    [code, mode],
+  )
+
+  const dismissInvitationNotice = useCallback(() => {
+    setInviteDismissed(true)
+  }, [])
+
+  const incomingInvitation = useMemo(() => {
+    if (!invitation || invitation.status !== 'pending') return null
+    if (isInvitationSender(invitation)) return null
+    if (inviteDismissed) return null
+    return invitation
+  }, [invitation, inviteDismissed])
+
+  const outgoingPendingInvitation = useMemo(() => {
+    if (!invitation || invitation.status !== 'pending') return null
+    if (!isInvitationSender(invitation)) return null
+    return invitation
+  }, [invitation])
+
+  const outgoingInvitationResult = useMemo(() => {
+    if (!invitation || invitation.status === 'pending') return null
+    if (!isInvitationSender(invitation)) return null
+    if (inviteDismissed) return null
+    return invitation
+  }, [invitation, inviteDismissed])
+
   const value = useMemo<CoupleContextValue>(
     () => ({
       code,
@@ -162,6 +249,10 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       cloudReady: isFirebaseConfigured,
       events,
       ideas,
+      invitation,
+      incomingInvitation,
+      outgoingPendingInvitation,
+      outgoingInvitationResult,
       loading,
       error,
       status:
@@ -201,8 +292,32 @@ export function CoupleProvider({ children }: { children: ReactNode }) {
       deleteIdea: async (id) => removeIdea(requireCode(), mode, id),
       uploadImage: async (file) => uploadEventImage(requireCode(), file),
       refreshCalendarFeed,
+      sendInvitation,
+      acceptInvitation,
+      declineInvitation,
+      dismissInvitationNotice,
     }),
-    [code, mode, events, ideas, loading, error, create, join, leave, repairSync, refreshCalendarFeed],
+    [
+      code,
+      mode,
+      events,
+      ideas,
+      invitation,
+      incomingInvitation,
+      outgoingPendingInvitation,
+      outgoingInvitationResult,
+      loading,
+      error,
+      create,
+      join,
+      leave,
+      repairSync,
+      refreshCalendarFeed,
+      sendInvitation,
+      acceptInvitation,
+      declineInvitation,
+      dismissInvitationNotice,
+    ],
   )
 
   return <CoupleContext.Provider value={value}>{children}</CoupleContext.Provider>

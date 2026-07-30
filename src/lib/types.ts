@@ -43,6 +43,29 @@ export const IDEA_CATEGORIES: IdeaCategory[] = [
 
 export const IDEA_STATUSES: IdeaStatus[] = ['Wishlist', 'Plánujeme', 'Splněno']
 
+export type InviteStatus = 'pending' | 'accepted' | 'declined'
+
+export interface DateInvitation {
+  id: string
+  status: InviteStatus
+  senderDeviceId: string
+  date: string // YYYY-MM-DD
+  time: string // HH:mm
+  plan: string
+  food: string
+  createdAt: string
+  updatedAt: string
+  respondedAt?: string
+  eventId?: string
+}
+
+export interface InviteDraft {
+  date: string
+  time: string
+  plan: string
+  food: string
+}
+
 export const CATEGORY_EMOJI: Record<IdeaCategory, string> = {
   Restaurace: '🍽️',
   Filmy: '🎬',

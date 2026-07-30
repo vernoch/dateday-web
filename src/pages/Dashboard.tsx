@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { format, isAfter, startOfDay } from 'date-fns'
 import { cs } from 'date-fns/locale'
-import { CalendarDays, Plus } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { CalendarDays, Plus, Send } from 'lucide-react'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
 import { EventForm } from '../components/EventForm'
 import { newEventDraft } from '../lib/coupleApi'
+import { formatInviteDate } from '../lib/inviteUtils'
 import { IDEA_CATEGORIES, type DateEvent } from '../lib/types'
 import { CATEGORY_STYLE, napaduLabel } from '../lib/categoryStyles'
 import { useEventCoverImage } from '../hooks/useEventCoverImage'
@@ -91,7 +92,17 @@ function SmallDateCard({
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const { events, ideas } = useCouple()
+  const { openInviteWizard } = useOutletContext<{ openInviteWizard: () => void }>()
+  const {
+    events,
+    ideas,
+    code,
+    mode,
+    cloudReady,
+    outgoingPendingInvitation,
+    outgoingInvitationResult,
+    dismissInvitationNotice,
+  } = useCouple()
   const [showAdd, setShowAdd] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
@@ -113,6 +124,7 @@ export function Dashboard() {
   const editEvent = events.find((e) => e.id === editId)
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Dobré ráno' : hour < 18 ? 'Ahoj' : 'Dobrý večer'
+  const canInvite = Boolean(code && cloudReady && mode === 'cloud')
 
   return (
     <div className="px-5 pt-6">
@@ -129,6 +141,52 @@ export function Dashboard() {
           <Plus className="h-6 w-6" strokeWidth={2.5} />
         </button>
       </div>
+
+      {canInvite && (
+        <button
+          type="button"
+          onClick={openInviteWizard}
+          disabled={Boolean(outgoingPendingInvitation)}
+          className="mb-6 flex w-full items-center gap-3 rounded-[1.35rem] bg-love px-4 py-4 text-left text-white shadow-md shadow-love/25 disabled:opacity-60"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+            <Send className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[16px] font-bold">
+              {outgoingPendingInvitation ? 'Čekáme na odpověď…' : 'Pozvat na rande 💌'}
+            </p>
+            <p className="text-[13px] text-white/85">
+              {outgoingPendingInvitation
+                ? `${formatInviteDate(outgoingPendingInvitation.date)} · ${outgoingPendingInvitation.time}`
+                : 'Pošleš nabídku — ona jen Ano / Ne'}
+            </p>
+          </div>
+        </button>
+      )}
+
+      {outgoingInvitationResult && (
+        <div
+          className={`mb-6 rounded-[1.35rem] p-4 ${
+            outgoingInvitationResult.status === 'accepted' ? 'bg-green-50' : 'bg-chip'
+          }`}
+        >
+          <p className="text-[16px] font-bold">
+            {outgoingInvitationResult.status === 'accepted' ? 'Přijato! 🎉' : 'Nepřijato'}
+          </p>
+          <p className="mt-1 text-[14px] text-muted">
+            {formatInviteDate(outgoingInvitationResult.date)} · {outgoingInvitationResult.plan} ·{' '}
+            {outgoingInvitationResult.food}
+          </p>
+          <button
+            type="button"
+            onClick={dismissInvitationNotice}
+            className="btn-secondary mt-3 w-full text-sm"
+          >
+            OK
+          </button>
+        </div>
+      )}
 
       <h2 className="mb-3 text-[22px] font-bold tracking-tight">Příští rande</h2>
       {next ? (
