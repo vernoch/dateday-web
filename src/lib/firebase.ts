@@ -23,7 +23,7 @@ const config = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseDefaults.appId,
 }
 
-export const APP_VERSION = '1.2.5'
+export const APP_VERSION = '1.2.6'
 
 export const isFirebaseConfigured = Boolean(
   config.apiKey &&

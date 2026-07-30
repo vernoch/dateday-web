@@ -1,48 +1,88 @@
 import { useMemo, useState } from 'react'
 import { format, isAfter, startOfDay } from 'date-fns'
-import { enUS } from 'date-fns/locale'
+import { cs } from 'date-fns/locale'
 import { CalendarDays, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useCouple } from '../context/CoupleContext'
 import { Modal } from '../components/Modal'
 import { EventForm } from '../components/EventForm'
 import { newEventDraft } from '../lib/coupleApi'
-import { IDEA_CATEGORIES } from '../lib/types'
+import { IDEA_CATEGORIES, type DateEvent } from '../lib/types'
 import { CATEGORY_STYLE, napaduLabel } from '../lib/categoryStyles'
 import { useEventCoverImage } from '../hooks/useEventCoverImage'
 
+const UPCOMING_LIMIT = 7
+
 function NextDateCard({
-  title,
-  dateIso,
-  link,
-  previewImageUrl,
-  imageUrl,
+  event,
   onClick,
 }: {
-  title: string
-  dateIso: string
-  link?: string
-  previewImageUrl?: string
-  imageUrl?: string
+  event: DateEvent
   onClick: () => void
 }) {
-  const { src } = useEventCoverImage({ link, previewImageUrl, imageUrl })
+  const { src } = useEventCoverImage({
+    link: event.link,
+    previewImageUrl: event.previewImageUrl,
+    imageUrl: event.imageUrl,
+  })
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="hero-gradient relative mb-8 flex h-52 w-full flex-col justify-end overflow-hidden rounded-[1.75rem] p-5 text-left shadow-lg shadow-indigo-900/20"
+      className="hero-gradient relative flex h-52 w-full flex-col justify-end overflow-hidden rounded-[1.75rem] p-5 text-left shadow-lg shadow-indigo-900/20"
     >
       {src && (
         <img src={src} alt="" className="absolute inset-0 h-full w-full object-cover" />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-black/10" />
       <div className="relative z-10">
-        <h3 className="text-[28px] font-bold leading-tight text-white">{title}</h3>
+        <h3 className="text-[28px] font-bold leading-tight text-white">{event.title}</h3>
         <p className="mt-1.5 flex items-center gap-1.5 text-[15px] text-white/90">
           <CalendarDays className="h-4 w-4" strokeWidth={2} />
-          {format(new Date(dateIso), 'd MMMM yyyy', { locale: enUS })}
+          {format(new Date(event.date), 'd. MMMM yyyy', { locale: cs })}
+        </p>
+        {event.location?.trim() ? (
+          <p className="mt-1 truncate text-[13px] text-white/75">{event.location}</p>
+        ) : null}
+      </div>
+    </button>
+  )
+}
+
+function SmallDateCard({
+  event,
+  onClick,
+}: {
+  event: DateEvent
+  onClick: () => void
+}) {
+  const { src } = useEventCoverImage({
+    link: event.link,
+    previewImageUrl: event.previewImageUrl,
+    imageUrl: event.imageUrl,
+  })
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-[1.25rem] bg-chip p-3 text-left transition active:scale-[0.99]"
+    >
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[1rem] bg-love-soft">
+        {src ? (
+          <img src={src} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-love">
+            <CalendarDays className="h-5 w-5" strokeWidth={2} />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[16px] font-semibold">{event.title || 'Rande'}</p>
+        <p className="mt-0.5 text-[13px] text-muted">
+          {format(new Date(event.date), 'EEE d. M.', { locale: cs })}
+          {event.location?.trim() ? ` · ${event.location}` : ''}
         </p>
       </div>
     </button>
@@ -65,9 +105,11 @@ export function Dashboard() {
             startOfDay(new Date(e.date)).getTime() === today.getTime()),
       )
       .sort((a, b) => +new Date(a.date) - +new Date(b.date))
+      .slice(0, UPCOMING_LIMIT)
   }, [events])
 
   const next = upcoming[0]
+  const rest = upcoming.slice(1)
   const editEvent = events.find((e) => e.id === editId)
   const hour = new Date().getHours()
   const greet = hour < 12 ? 'Dobré ráno' : hour < 18 ? 'Ahoj' : 'Dobrý večer'
@@ -90,14 +132,12 @@ export function Dashboard() {
 
       <h2 className="mb-3 text-[22px] font-bold tracking-tight">Příští rande</h2>
       {next ? (
-        <NextDateCard
-          title={next.title}
-          dateIso={next.date}
-          link={next.link}
-          previewImageUrl={next.previewImageUrl}
-          imageUrl={next.imageUrl}
-          onClick={() => setEditId(next.id)}
-        />
+        <div className="mb-8 space-y-2.5">
+          <NextDateCard event={next} onClick={() => setEditId(next.id)} />
+          {rest.map((event) => (
+            <SmallDateCard key={event.id} event={event} onClick={() => setEditId(event.id)} />
+          ))}
+        </div>
       ) : (
         <button
           onClick={() => setShowAdd(true)}
